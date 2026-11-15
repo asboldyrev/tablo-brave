@@ -510,3 +510,9 @@ body.search-off:not(.clock-off) .hero {
 /* Match the exact horizontal origin, including narrow responsive layouts. */
 .hero {left:var(--tablo-board-left, 50%);transform:none;}
 body.search-off:not(.clock-off) .hero {left:50%;transform:translateX(-50%);}
+
+/* v0.6.3: visually balanced top/bottom glass inset for clock glyphs.
+   Without a clock the search form has no legacy extra top margin. */
+.hero { padding-top:12px; padding-bottom:18px; }
+body.clock-off:not(.search-off) .hero { padding-top:18px; padding-bottom:18px; }
+body.clock-off .hero .search-form { margin-top:0; }
