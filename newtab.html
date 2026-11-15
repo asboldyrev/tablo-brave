@@ -21,7 +21,7 @@
           <button type="submit" aria-label="Искать">⌕</button>
         </form>
       </section>
-      <div class="section-actions main-actions">
+      <div class="section-actions main-actions" hidden>
         <button id="addSiteBtn" class="btn btn-secondary" type="button"><span class="btn-icon" id="addSiteIcon"></span>Добавить сайт</button>
         <button id="addFolderBtn" class="btn btn-secondary" type="button"><span class="btn-icon" id="addFolderIcon"></span>Создать папку</button>
       </div>
@@ -31,9 +31,9 @@
         <h2>Здесь пока нет плиток</h2><p>Добавь сайт или папку. Данные хранятся в закладках Brave.</p>
         <button id="firstSiteBtn" class="btn btn-primary" type="button">Добавить сайт</button>
       </div>
-      <p class="help-tip" id="helpTip">Перетаскивай карточки для изменения порядка и перемещения в папки.</p>
+
     </main>
-    <footer class="footer"><span id="wallpaperCredit"></span><button type="button" id="settingsBtn" class="settings-trigger" title="Настройки Табло" aria-label="Настройки Табло">⚙</button></footer>
+    <footer class="footer"><a id="wallpaperCredit" target="_blank" rel="noopener noreferrer"></a><button type="button" id="settingsBtn" class="settings-trigger" title="Настройки Табло" aria-label="Настройки Табло">⚙</button></footer>
   </div>
   <aside class="settings-panel" id="settingsPanel" hidden aria-label="Вид новой вкладки">
     <div class="settings-heading"><strong>Вид новой вкладки</strong><button type="button" id="settingsClose" aria-label="Закрыть">×</button></div>
@@ -48,27 +48,25 @@
   </aside>
   <div id="folderOverlay" class="overlay folder-overlay" hidden>
     <section id="folderPanel" class="folder-panel" role="dialog" aria-modal="true" aria-labelledby="folderTitle">
-      <div class="folder-topbar">
-        <button type="button" class="folder-back" id="folderBackBtn" title="На уровень выше" aria-label="На уровень выше">←</button>
-        <button class="icon-btn close-btn" id="closeFolderBtn" type="button" aria-label="Закрыть папку"></button>
-      </div>
+
       <div class="folder-heading">
         <div>
           <h2 id="folderTitle"></h2>
         </div>
-        <div class="section-actions">
-          <button id="folderAddFolderBtn" class="btn btn-secondary btn-small" type="button">+ Папка</button>
-          <button id="folderAddSiteBtn" class="btn btn-primary btn-small" type="button">+ Сайт</button>
-        </div>
+
       </div>
       <div class="folder-content">
         <div class="tile-grid folder-grid" id="folderGrid"></div>
         <div id="folderEmpty" class="folder-empty" hidden>Папка пуста. Добавь сайт или перетащи сюда плитку.</div>
       </div>
-      <p class="folder-hint">Нажми вне окна или Esc, чтобы закрыть папку</p>
+
     </section>
   </div>
 
+  <div id="addMenu" class="context-menu" role="menu" hidden>
+    <button type="button" data-add-action="site">Добавить сайт</button>
+    <button type="button" data-add-action="folder">Добавить папку</button>
+  </div>
   <div id="contextMenu" class="context-menu" role="menu" hidden>
     <button type="button" role="menuitem" data-menu-action="open" id="menuOpen"></button>
     <button type="button" role="menuitem" data-menu-action="edit">Изменить</button>
@@ -91,8 +89,10 @@
         <div id="siteAppearance" class="site-appearance">
           <label class="field"><span>Цвет карточки (необязательно)</span><input id="tileColorInput" type="color" value="#ffffff" /></label>
           <label class="setting"><span>Автоцвет с сайта</span><input id="autoColorInput" type="checkbox" checked /></label>
+          <div class="icon-preview-line"><span>Иконка сайта</span><div id="iconPreview" class="icon-preview"><span>Нет иконки</span></div></div>
           <button class="btn btn-secondary" type="button" id="fetchMetaBtn">Получить данные сайта</button>
-          </div><p class="metadata-note">Для получения данных может понадобиться разрешение на доступ к сайту. Некоторые сайты не публикуют цвет или не позволяют читать страницу.</p>
+          <p class="metadata-note">Кнопка загружает название, иконку и цвет с сайта. Может понадобиться разрешение. Автоматически используются только уже доступные локальные данные.</p>
+          </div>
         <label class="field"><span>Расположение</span><select id="parentSelect" name="parentId"></select></label>
         <p class="form-error" id="formError" role="alert" hidden></p>
         <div class="editor-actions">
