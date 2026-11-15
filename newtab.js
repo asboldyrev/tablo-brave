@@ -67,13 +67,33 @@ function siteVisual(node, mini=false) {
   const image=`<span class="site-icon"><img draggable="false" loading="lazy" src="${esc(src)}" alt="" /><span class="fallback-letter">${esc((node.title||'?').slice(0,1).toUpperCase())}</span></span>`;
   return `<span class="site-visual mode-${esc(mode)}">${image}<span class="site-label">${label}</span></span>`;
 }
+// A nested folder has a flat four-colour preview: no recursively rendered
+// icons, names or miniature folders. Descendant links only supply colours.
+function previewColourForNode(node, depth=0) {
+  if (!node || depth>16) return null;
+  if (node.url) {
+    const color=appearance[node.id]?.color;
+    return validHex(color)?color:tileColor(node.url);
+  }
+  for (const child of (node.children||[])) {
+    const color=previewColourForNode(child,depth+1);
+    if (color) return color;
+  }
+  return null;
+}
+function nestedFolderPreview(folder) {
+  return `<span class="nested-folder-placeholder" aria-hidden="true">${Array.from({length:4},(_,i)=>{
+    const color=previewColourForNode((folder.children||[])[i]);
+    return `<span class="folder-preview-color${color?'':' empty'}"${color?` style="background:${color}"`:''}></span>`;
+  }).join('')}</span>`;
+}
 function smallFolderIcons(folder) {
   return Array.from({length:4},(_,i)=>{
     const child=(folder.children||[])[i];
     if (!child) return '<span class="folder-mini empty"></span>';
-    const c=appearance[child.id]||{};
-    const color=child.url?(validHex(c.color)?c.color:tileColor(child.url)):'#d9d9dd';
-    return `<span class="folder-mini" style="--mini-color:${color};--mini-ink:${contrastText(color)}">${child.url?siteVisual(child,true):`<span class="mini-folder">${smallFolderIcons(child)}</span>`}</span>`;
+    if (!child.url) return `<span class="folder-mini is-nested-folder">${nestedFolderPreview(child)}</span>`;
+    const color=previewColourForNode(child);
+    return `<span class="folder-mini" style="--mini-color:${color};--mini-ink:${contrastText(color)}">${siteVisual(child,true)}</span>`;
   }).join('');
 }
 function tileHTML(node) {
