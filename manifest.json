@@ -2,11 +2,13 @@
   "manifest_version": 3,
   "name": "Табло для Brave",
   "description": "Крупные плитки и всплывающие папки на новой вкладке. Все сайты хранятся в обычных закладках.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "permissions": [
     "bookmarks",
     "storage",
-    "favicon"
+    "favicon",
+    "search",
+    "tabs"
   ],
   "host_permissions": [
     "https://www.bing.com/*",
