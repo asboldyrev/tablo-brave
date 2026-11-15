@@ -18,7 +18,7 @@
         <div id="today" class="today"></div>
         <form id="searchForm" class="search-form" role="search">
           <input id="searchInput" aria-label="Поиск в интернете или адрес сайта" placeholder="Введите запрос или адрес" autocomplete="off" />
-          <button type="submit" aria-label="Искать">⌕</button>
+          <button type="submit" aria-label="Искать" id="searchSubmit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
         </form>
       </section>
       <div class="section-actions main-actions" hidden>
@@ -33,10 +33,10 @@
       </div>
 
     </main>
-    <footer class="footer"><a id="wallpaperCredit" target="_blank" rel="noopener noreferrer"></a><button type="button" id="settingsBtn" class="settings-trigger" title="Настройки Табло" aria-label="Настройки Табло">⚙</button></footer>
+    <footer class="footer"><a id="wallpaperCredit" target="_blank" rel="noopener noreferrer"></a><button type="button" id="settingsBtn" class="settings-trigger" title="Настройки Табло" aria-label="Настройки Табло"></button></footer>
   </div>
   <aside class="settings-panel" id="settingsPanel" hidden aria-label="Вид новой вкладки">
-    <div class="settings-heading"><strong>Вид новой вкладки</strong><button type="button" id="settingsClose" aria-label="Закрыть">×</button></div>
+    <div class="settings-heading"><strong>Вид новой вкладки</strong><button type="button" id="settingsClose" aria-label="Закрыть"></button></div>
     <label class="setting"><span>Часы и дата</span><input id="clockToggle" type="checkbox" checked /></label>
     <label class="setting"><span>Поисковая строка</span><input id="searchToggle" type="checkbox" checked /></label>
     <label class="setting"><span>Размер плиток</span><select id="tileSizeSelect"><option value="small">Маленький</option><option value="normal">Средний</option><option value="large">Большой</option></select></label>
