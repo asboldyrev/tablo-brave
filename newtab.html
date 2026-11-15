@@ -44,15 +44,16 @@
     <label class="setting"><span>Фон</span><select id="backgroundSelect"><option value="bing">Bing: изображение дня</option><option value="plain">Однотонный</option></select></label>
     <label class="setting"><span>Затемнение фона</span><input id="shadeRange" type="range" min="0" max="80" step="5" /></label>
     <label class="setting setting-folder"><span>Папка закладок Табло</span><select id="rootFolderSelect" aria-label="Папка для Табло"></select></label>
+    <label class="setting"><span>Цвет новых карточек</span><select id="colorSourceDefault"><option value="site">С сайта</option><option value="generated">Из иконки</option></select></label>
+    <button type="button" class="btn btn-secondary" id="refreshCardDataBtn">Обновить иконки и цвета карточек</button>
     <div class="settings-note">Выбери существующую папку закладок для Табло. Переключение не перемещает и не удаляет закладки.</div>
   </aside>
   <div id="folderOverlay" class="overlay folder-overlay" hidden>
     <section id="folderPanel" class="folder-panel" role="dialog" aria-modal="true" aria-labelledby="folderTitle">
 
       <div class="folder-heading">
-        <div>
-          <h2 id="folderTitle"></h2>
-        </div>
+        <div class="folder-nav"><button id="folderBack" type="button" aria-label="Назад"></button><nav id="folderBreadcrumbs" aria-label="Путь к папке"></nav></div>
+        <h2 id="folderTitle"></h2>
 
       </div>
       <div class="folder-content">
@@ -88,7 +89,7 @@
         </div>
         <div id="siteAppearance" class="site-appearance">
           <label class="field"><span>Цвет карточки (необязательно)</span><input id="tileColorInput" type="color" value="#ffffff" /></label>
-          <label class="setting"><span>Автоцвет с сайта</span><input id="autoColorInput" type="checkbox" checked /></label>
+          <label class="setting"><span>Источник автоцвета</span><select id="colorSourceInput"><option value="site">Цвет сайта</option><option value="generated">По иконке</option></select></label>
           <div class="icon-preview-line"><span>Иконка сайта</span><div id="iconPreview" class="icon-preview"><span>Нет иконки</span></div></div>
           <button class="btn btn-secondary" type="button" id="fetchMetaBtn">Получить данные сайта</button>
           <p class="metadata-note">Кнопка загружает название, иконку и цвет с сайта. Может понадобиться разрешение. Автоматически используются только уже доступные локальные данные.</p>
