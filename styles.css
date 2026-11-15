@@ -238,7 +238,7 @@ body[data-display="icon"] .is-site .tile-icon img {width:50px;height:50px;}
 .tile-title { color:inherit; max-width:100%; white-space:normal; text-align:center; }
 .tile-icon { background:transparent; }
 .folder-panel .crumb.active {color:#fff;}
-.folder-panel .folder-mini {background:#fff;}
+.folder-panel .folder-mini:not(.empty):not(.is-nested-folder) {background:var(--mini-color, #fff);}
 .editor-panel,.editor-panel .field {color:#30313c;}
 .empty-state,.empty-state h2 {color:#fff;}
 .site-appearance .setting {color:#34323c;}
@@ -362,3 +362,38 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
 .site-appearance{margin-bottom:26px;}
 @media(max-height:650px){.hero{top:8px}.clock{font-size:30px}.today{margin:0 0 4px}.content{padding-top:125px;}}
 @media(max-width:620px){.hero{top:10px}.content{padding-top:148px}.folder-icon{transform:scale(.85)}#wallpaperCredit{max-width:65vw;}}
+
+/* v0.5 */
+.clock {font-size:clamp(64px,6.7vw,110px);letter-spacing:-3px;}
+.content {max-width:none;width:100%;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:0 12px;}
+#rootGrid{width:max-content;max-width:calc(100vw - 24px);margin:auto;}
+.folder-heading{position:relative;display:flex;align-items:center;justify-content:center;min-height:40px;}
+.folder-heading h2{margin:0;text-align:center;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.folder-nav{position:absolute;left:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;max-width:35%;font-size:12px;white-space:nowrap;}
+#folderBack{display:grid;place-items:center;color:inherit;border:0;background:rgba(255,255,255,.2);border-radius:8px;width:30px;height:30px;flex:none;}
+#folderBreadcrumbs{display:flex;align-items:center;gap:5px;overflow:hidden;white-space:nowrap;}
+.folder-crumb{max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;background:none;border:0;padding:2px;opacity:.8;font-size:12px;}
+.folder-crumb:hover{text-decoration:underline;opacity:1;}
+.crumb-ellipsis,.crumb-separator{opacity:.65;flex:none;}
+.tile.dragging{opacity:.45;filter:none!important;}
+.tile:not(.dragging):hover{filter:none;}
+.tile:focus,.tile-main:focus{outline:none;}
+#refreshCardDataBtn{width:100%;white-space:normal;text-align:center;}
+@media(max-height:650px){.clock{font-size:65px}.content{padding:0 12px;}}
+
+/* v0.5.1: the fixed footer controls must not extend the 100dvh layout. */
+.footer {position:fixed;inset:auto 0 0;height:0;margin:0;padding:0;max-width:none;pointer-events:none;}
+.footer #wallpaperCredit,.footer .settings-trigger{pointer-events:auto;}
+
+/* v0.5.2: show only one visual layer in folder previews. */
+.folder-mini.is-nested-folder {background:#d5d3da;}
+.nested-folder-placeholder {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:2px;padding:2px;width:100%;height:100%;overflow:hidden;}
+.folder-preview-color {display:block;min-width:0;min-height:0;border-radius:1px;}
+.folder-preview-color.empty {background:rgba(108,105,118,.23);}
+
+/* v0.5.4 — Lucide icon alignment and consistent control sizing */
+.search-form #searchSubmit {width:52px;min-width:52px;height:100%;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex:none;}
+.search-form #searchSubmit svg {display:block;width:20px;height:20px;flex:none;}
+.settings-trigger,.settings-heading button {display:grid;place-items:center;padding:0;line-height:1;}
+.settings-trigger svg {width:21px;height:21px;display:block;}
+.settings-heading button svg {width:18px;height:18px;display:block;}

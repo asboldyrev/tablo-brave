@@ -12,6 +12,17 @@ const ICONS = {
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   link: '<path d="M7 17 17 7M8 7h9v9"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  settings: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.91 1.91-.06-.06A1.65 1.65 0 0 0 16 18.4a1.65 1.65 0 0 0-1 1.5V21h-2.7v-1.1a1.65 1.65 0 0 0-1-1.5 1.65 1.65 0 0 0-1.82.33l-.06.06-1.91-1.91.06-.06A1.65 1.65 0 0 0 7.9 15a1.65 1.65 0 0 0-1.5-1H5.3v-2.7h1.1a1.65 1.65 0 0 0 1.5-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06L9.42 6.5l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.5V4.3H15v1.1a1.65 1.65 0 0 0 1 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.91 1.91-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.5 1H22v2.7h-1.1a1.65 1.65 0 0 0-1.5 1Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/>',
+  moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.804A6 6 0 0 0 20.18 12.08c.344-.215.826-.004.805.405"/>',
+  cloud: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h11"/>',
+  cloudSun: '<path d="M12 2v2m7.07.93-1.41 1.41M22 12h-2M4 12H2m4.34-5.66L4.93 4.93"/><path d="M12 8a4 4 0 0 1 4 4"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h11"/>',
+  cloudRain: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="m8 19-1 3m6-3-1 3m6-3-1 3"/>',
+  cloudSnow: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h.01M12 21h.01M16 19h.01"/>',
+  cloudLightning: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="m13 17-3 4h3l-1 3 5-6h-3l1-3"/>',
+  cloudFog: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M5 19h14M7 22h10"/>',
 };
 function icon(name) {
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -66,13 +77,33 @@ function siteVisual(node, mini=false) {
   const image=`<span class="site-icon"><img draggable="false" loading="lazy" src="${esc(src)}" alt="" /><span class="fallback-letter">${esc((node.title||'?').slice(0,1).toUpperCase())}</span></span>`;
   return `<span class="site-visual mode-${esc(mode)}">${image}<span class="site-label">${label}</span></span>`;
 }
+// A nested folder has a flat four-colour preview: no recursively rendered
+// icons, names or miniature folders. Descendant links only supply colours.
+function previewColourForNode(node, depth=0) {
+  if (!node || depth>16) return null;
+  if (node.url) {
+    const color=appearance[node.id]?.color;
+    return validHex(color)?color:tileColor(node.url);
+  }
+  for (const child of (node.children||[])) {
+    const color=previewColourForNode(child,depth+1);
+    if (color) return color;
+  }
+  return null;
+}
+function nestedFolderPreview(folder) {
+  return `<span class="nested-folder-placeholder" aria-hidden="true">${Array.from({length:4},(_,i)=>{
+    const color=previewColourForNode((folder.children||[])[i]);
+    return `<span class="folder-preview-color${color?'':' empty'}"${color?` style="background:${color}"`:''}></span>`;
+  }).join('')}</span>`;
+}
 function smallFolderIcons(folder) {
   return Array.from({length:4},(_,i)=>{
     const child=(folder.children||[])[i];
     if (!child) return '<span class="folder-mini empty"></span>';
-    const c=appearance[child.id]||{};
-    const color=child.url?(validHex(c.color)?c.color:tileColor(child.url)):'#d9d9dd';
-    return `<span class="folder-mini" style="--mini-color:${color};--mini-ink:${contrastText(color)}">${child.url?siteVisual(child,true):`<span class="mini-folder">${smallFolderIcons(child)}</span>`}</span>`;
+    if (!child.url) return `<span class="folder-mini is-nested-folder">${nestedFolderPreview(child)}</span>`;
+    const color=previewColourForNode(child);
+    return `<span class="folder-mini" style="--mini-color:${color};--mini-ink:${contrastText(color)}">${siteVisual(child,true)}</span>`;
   }).join('');
 }
 function tileHTML(node) {
@@ -96,6 +127,8 @@ let contextId = null;
 let draggedId = null;
 let draggingFromFolder = false;
 let dragExitedFolder = false;
+let suppressClickUntil = 0;
+let dragOrigin = null;
 let addMenuFolderId = null;
 let localMetadata = {};
 let renderRevision = 0;
@@ -103,7 +136,7 @@ let refreshTimer = null;
 let toastTimer = null;
 let tileSize = 'normal';
 let appearance = {};
-let settings = {tileSize:'normal', display:'both', background:'bing', shade:25, clock:true, search:true};
+let settings = {tileSize:'normal', display:'both', background:'bing', shade:25, clock:true, search:true, colorSource:'site'};
 const defaultColor = '#ffffff';
 function validHex(value) { return /^#[0-9a-f]{6}$/i.test(value || ''); }
 function contrastText(hex) {
@@ -126,6 +159,7 @@ function applySettings() {
   el('shadeRange').value=settings.shade;
   el('clockToggle').checked=settings.clock;
   el('searchToggle').checked=settings.search;
+  el('colorSourceDefault').value=settings.colorSource||'site';
   el('wallpaper').style.display=settings.background==='plain'?'none':'block';
   el('wallpaperCredit').hidden=settings.background==='plain';
 }
@@ -162,6 +196,8 @@ function setWallpaperCredit(image) {
     if(url.protocol==='https:')credit.href=url.href;
     else credit.removeAttribute('href');
   }catch{credit.removeAttribute('href');}
+  if(!credit.hasAttribute('href') && image.url?.startsWith('https://www.bing.com/')) credit.href=image.url;
+  credit.title='Открыть изображение Bing';
 }
 function preferDark() { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
 function pickThemeColor(doc) {
@@ -202,7 +238,7 @@ async function fillFromKnownMetadata(url) {
   const found=effectiveMetadataFor(url);
   if(found){
     if(found.title && !el('titleInput').value.trim())el('titleInput').value=found.title;
-    if(validHex(found.color)&&el('autoColorInput').checked)el('tileColorInput').value=found.color;
+    if(validHex(found.color))el('tileColorInput').value=found.color;
     editingMeta={...editingMeta,...found};
     previewIcon(found.iconData||found.iconUrl||favUrl(url));
     return;
@@ -247,30 +283,32 @@ async function loadSiteIcon(url,doc) {
     return {iconData,iconUrl:href.href};
   } catch { return {iconUrl:href.href}; }
 }
+// A palette-based colour extractor: ignore transparency, near-white/black and
+// neutral pixels, quantize remaining pixels, then favour saturated prominent colours.
+// This is our own implementation of the general colour-selection approach; no external code.
 async function colorFromIcon(iconData) {
   if(!iconData) return null;
-  if(iconData.startsWith('data:image/svg')) {
-    try {
-      const xml=atob(iconData.split(',')[1]||'');
-      const candidates=[...xml.matchAll(/(?:fill|stroke|stop-color)=["'](#[0-9a-f]{3,6})["']/ig)].map(match=>parseColor(match[1]));
-      return candidates.find(color=>color && color!=='#ffffff' && color!=='#000000')||null;
-    } catch{return null;}
-  }
   try {
     const image=new Image();image.src=iconData;await image.decode();
-    const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,32,32);
-    const pixels=ctx.getImageData(0,0,32,32).data, colors=[];
-    for(let i=0;i<pixels.length;i+=4){const [r,g,b,a]=pixels.slice(i,i+4);const max=Math.max(r,g,b),min=Math.min(r,g,b);
-      if(a<170 || max<45 || min>235 || max-min<35)continue;
-      colors.push([r,g,b]);
+    const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,64,64);
+    const pixels=ctx.getImageData(0,0,64,64).data;
+    const buckets=new Map();
+    for(let i=0;i<pixels.length;i+=4) {
+      const [r,g,b,a]=[pixels[i],pixels[i+1],pixels[i+2],pixels[i+3]];
+      if(a<150) continue;
+      const max=Math.max(r,g,b),min=Math.min(r,g,b),spread=max-min;
+      if(max<45 || min>235 || spread<26) continue;
+      const key=[r,g,b].map(v=>Math.min(255,Math.round(v/24)*24)).join(',');
+      const old=buckets.get(key)||{weight:0,r:0,g:0,b:0};
+      const weight=(a/255)*(0.45+spread/255);
+      old.weight+=weight;old.r+=r*weight;old.g+=g*weight;old.b+=b*weight;
+      buckets.set(key,old);
     }
-    if(!colors.length)return null;
-    // Quantize and select a frequent saturated bucket; transparent background is ignored.
-    const buckets=new Map();for(const color of colors){const key=color.map(n=>Math.round(n/32)*32).join(',');buckets.set(key,(buckets.get(key)||0)+1);}
-    const rgb=[...buckets].sort((a,b)=>b[1]-a[1])[0][0].split(',').map(n=>Math.min(255,Number(n)));
-    return '#'+rgb.map(n=>n.toString(16).padStart(2,'0')).join('');
-  }catch{return null;}
+    const best=[...buckets.values()].sort((a,b)=>b.weight-a.weight)[0];
+    if(!best)return null;
+    return '#'+['r','g','b'].map(k=>Math.round(best[k]/best.weight).toString(16).padStart(2,'0')).join('');
+  } catch {return null;}
 }
 async function fetchSiteMetadata(url) {
   const parsed=new URL(url);
@@ -287,11 +325,32 @@ async function fetchSiteMetadata(url) {
     const theme=pickThemeColor(doc);
     const title=(doc.querySelector('meta[property="og:site_name"]')?.content||doc.querySelector('title')?.textContent||'').trim().slice(0,180);
     const icon=await loadSiteIcon(url,doc);
-    const color=theme||await colorFromIcon(icon.iconData);
-    const result={title,color,...icon};
+    const generatedColor=await colorFromIcon(icon.iconData);
+    const result={title,color:theme||generatedColor,themeColor:theme,generatedColor,...icon};
     localMetadata[parsed.href]=result;localMetadata[parsed.origin]=result;
     return result;
   }finally{clearTimeout(timer);}
+}
+
+async function refreshAllCardData() {
+  const button=el('refreshCardDataBtn');button.disabled=true;
+  const sites=[...nodeMap.values()].filter(node=>node.url && /^https?:\/\//i.test(node.url));
+  let success=0,failed=0;
+  // Sequential requests avoid opening a flood of site permission dialogs.
+  for(const node of sites) {
+    try {
+      const data=await fetchSiteMetadata(node.url);
+      const old=appearance[node.id]||{};
+      const source=old.colorSource||settings.colorSource||'site';
+      const color=source==='generated'?data.generatedColor:data.themeColor;
+      appearance[node.id]={...old,iconData:data.iconData||old.iconData,iconUrl:data.iconUrl||old.iconUrl,
+        themeColor:data.themeColor,generatedColor:data.generatedColor,
+        ...(validHex(color)?{color}:{})};
+      success++;
+    }catch{failed++;}
+  }
+  await saveAppearance();render();button.disabled=false;
+  showToast(`Обновлено карточек: ${success}. Не удалось: ${failed}`);
 }
 
 function updateClock() {
@@ -412,6 +471,10 @@ function renderFolder() {
   if (!folder || folder.id === rootId) { closeFolder(); return; }
   el('folderOverlay').hidden = false;
   el('folderTitle').textContent = folder.title;
+  const ancestors=folderPath.slice(0,-1);
+  const visible=ancestors.slice(-2);
+  el('folderBack').hidden = ancestors.length === 0;
+  el('folderBreadcrumbs').innerHTML=(ancestors.length>2?'<span class="crumb-ellipsis" title="Есть более ранние папки">…</span>':'')+visible.map((id,i)=>`<button type="button" class="folder-crumb" data-folder-id="${esc(id)}">${esc(nodeMap.get(id)?.title||'Папка')}</button>`).join('<span class="crumb-separator">›</span>');
   const count = (folder.children || []).length;
   el('folderGrid').innerHTML = (folder.children || []).map(tileHTML).join('')+addTileHTML();
   el('folderEmpty').hidden = true;
@@ -489,7 +552,7 @@ function openEditor(mode, type, nodeId = null) {
   el('urlField').hidden = type === 'folder';
   el('siteAppearance').hidden = type === 'folder' || mode === 'move';
   el('tileColorInput').value = validHex(appearance[nodeId]?.color) ? appearance[nodeId].color : defaultColor;
-  el('autoColorInput').checked = appearance[nodeId]?.autoColor !== false;
+  el('colorSourceInput').value=appearance[nodeId]?.colorSource || settings.colorSource || 'site';
   editingMeta={};
   previewIcon(node?.url?(appearance[nodeId]?.iconData||appearance[nodeId]?.iconUrl||favUrl(node.url)):null);
   if(mode==='create'&&type==='site'&&el('urlInput').value.trim())void fillFromKnownMetadata(el('urlInput').value.trim());
@@ -530,7 +593,7 @@ async function submitEditor(event) {
       const details = {parentId, title};
       if (type === 'site') details.url = url;
       const created=await chrome.bookmarks.create(details);
-      if(type==='site') { appearance[created.id]={color:el('tileColorInput').value,autoColor:el('autoColorInput').checked,...editingMeta}; await saveAppearance(); }
+      if(type==='site') { appearance[created.id]={color:el('tileColorInput').value,colorSource:el('colorSourceInput').value,...editingMeta}; await saveAppearance(); }
       showToast(type === 'folder' ? 'Папка создана' : 'Сайт добавлен');
     } else if (mode === 'move') {
       if (parentId !== parentOf(nodeId)) await chrome.bookmarks.move(nodeId, {parentId});
@@ -539,7 +602,7 @@ async function submitEditor(event) {
       const changes = {title};
       if (type === 'site') changes.url = url;
       await chrome.bookmarks.update(nodeId, changes);
-      if(type==='site') { appearance[nodeId]={...appearance[nodeId],color:el('tileColorInput').value,autoColor:el('autoColorInput').checked,...editingMeta}; await saveAppearance(); }
+      if(type==='site') { appearance[nodeId]={...appearance[nodeId],color:el('tileColorInput').value,colorSource:el('colorSourceInput').value,...editingMeta}; await saveAppearance(); }
       if (parentId !== parentOf(nodeId)) await chrome.bookmarks.move(nodeId, {parentId});
       showToast('Изменения сохранены');
     }
@@ -573,7 +636,7 @@ async function deleteNode(id) {
 function bindGrid(grid) {
   grid.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button) return;
+    if (!button || Date.now()<suppressClickUntil) return;
     if(button.dataset.action==='add'){openEditor('create','site');return;}
     const id = button.dataset.id;
     if (button.dataset.action === 'menu') openContext(id, button);
@@ -595,17 +658,17 @@ function bindGrid(grid) {
   grid.addEventListener('dragstart', (event) => {
     const tile = event.target.closest('.tile');
     if (!tile || !nodeMap.has(tile.dataset.id)) return;
-    event.preventDefault();
     document.activeElement?.blur?.();
     closeAddMenu();
-    draggingFromFolder=folderPath.length>0;dragExitedFolder=false;
+    draggingFromFolder=grid===el('folderGrid');dragExitedFolder=false;dragOrigin=grid;
+    suppressClickUntil=Date.now()+500;
     draggedId = tile.dataset.id;
     event.dataTransfer.setData('text/plain', draggedId);
     event.dataTransfer.effectAllowed = 'move';
     tile.classList.add('dragging');
     closeContext();
   });
-  grid.addEventListener('dragend', () => { draggedId = null;draggingFromFolder=false;dragExitedFolder=false;clearDropClasses();document.activeElement?.blur?.(); });
+  grid.addEventListener('dragend', () => { finishDrag(); });
   grid.addEventListener('dragover', (event) => {
     const tile = event.target.closest('.tile');
     if (!draggedId) return;
@@ -649,10 +712,13 @@ function bindGrid(grid) {
       else {
         // Chromium interprets index as 'insert before the element at this index'
         // using the original sibling order, even when reordering one folder.
-        const index = target.index + (place === 'after' ? 1 : 0);
+        let index=target.index + (place === 'after' ? 1 : 0);
+        const moving=nodeMap.get(id);
+        if(moving?.parentId===target.parentId && moving.index<index) index--;
         await moveBookmark(id, target.parentId, index);
       }
     } catch (error) { showToast('Не удалось переместить: ' + error.message); }
+    finally {finishDrag();}
   });
 }
 function dropPlacement(tile, pointerX) {
@@ -660,6 +726,14 @@ function dropPlacement(tile, pointerX) {
   const fraction = Math.max(0, Math.min(1, (pointerX - rect.left) / rect.width));
   if (tile.dataset.isFolder === 'true' && fraction >= .23 && fraction <= .77) return 'inside';
   return fraction < .5 ? 'before' : 'after';
+}
+function finishDrag(){
+  draggedId=null;draggingFromFolder=false;dragExitedFolder=false;dragOrigin=null;
+  clearDropClasses();
+  document.querySelectorAll('.tile.dragging').forEach(n=>n.classList.remove('dragging'));
+  document.activeElement?.blur?.();
+  el('folderOverlay').classList.remove('drag-outside');
+  suppressClickUntil=Date.now()+130;
 }
 function clearDropClasses() {
   document.querySelectorAll('.drop-inside,.drop-before,.drop-after,.drop-folder')
@@ -678,6 +752,8 @@ function initListeners() {
   el('addSiteIcon').innerHTML = icon('plus');
   el('addFolderIcon').innerHTML = icon('folder');
   el('closeEditorBtn').innerHTML = icon('close');
+  el('settingsBtn').innerHTML = icon('settings');
+  el('settingsClose').innerHTML = icon('close');
   updateClock(); setInterval(updateClock,30000);
   const addSite = () => openEditor('create', 'site');
   const addFolder = () => openEditor('create', 'folder');
@@ -686,6 +762,9 @@ function initListeners() {
   el('addFolderBtn').addEventListener('click', addFolder);
   el('settingsBtn').addEventListener('click',(event)=>{event.stopPropagation();el('settingsPanel').hidden=!el('settingsPanel').hidden;});
   el('settingsClose').addEventListener('click',()=>{el('settingsPanel').hidden=true;});
+  el('refreshCardDataBtn').addEventListener('click',()=>void refreshAllCardData());
+  el('colorSourceDefault').addEventListener('change',()=>void updateSettings('colorSource',el('colorSourceDefault').value));
+  el('colorSourceInput').addEventListener('change',()=>{const c=editingMeta[el('colorSourceInput').value==='generated'?'generatedColor':'themeColor'];if(validHex(c))el('tileColorInput').value=c;});
   el('rootFolderSelect').addEventListener('change',async()=>{const selected=el('rootFolderSelect').value;const [folder]=await chrome.bookmarks.get(selected);if(folder.url)return;rootId=selected;folderPath=[];await chrome.storage.local.set({rootFolderId:selected});await refreshTree();showToast('Папка Табло изменена');});
   for(const [id,key,prop] of [['tileSizeSelect','tileSize','value'],['displaySelect','display','value'],['backgroundSelect','background','value'],['shadeRange','shade','value'],['clockToggle','clock','checked'],['searchToggle','search','checked']]) {
     el(id).addEventListener('change',()=>void updateSettings(key,key==='shade'?Number(el(id)[prop]):el(id)[prop]));
@@ -701,13 +780,17 @@ function initListeners() {
     try {
       const result=await fetchSiteMetadata(normaliseUrl(el('urlInput').value));
       if(result.title)el('titleInput').value=result.title;
-      if(result.color && el('autoColorInput').checked)el('tileColorInput').value=result.color;
-      editingMeta={iconData:result.iconData,iconUrl:result.iconUrl};
+      const chosen=el('colorSourceInput').value==='generated' ? result.generatedColor : result.themeColor;
+      if(validHex(chosen||result.color))el('tileColorInput').value=chosen||result.color;
+      editingMeta={iconData:result.iconData,iconUrl:result.iconUrl,themeColor:result.themeColor,generatedColor:result.generatedColor};
       previewIcon(result.iconData||result.iconUrl||favUrl(el('urlInput').value));
       showToast('Данные сайта получены');
     } catch(error){showToast('Не удалось загрузить данные: '+error.message);}
     finally {btn.disabled=false;}
   });
+  el('folderBack').innerHTML=icon('back');
+  el('folderBack').addEventListener('click',()=>{if(folderPath.length>1){folderPath.pop();renderFolder();}else closeFolder();});
+  el('folderBreadcrumbs').addEventListener('click',(event)=>{const crumb=event.target.closest('[data-folder-id]');if(!crumb)return;const idx=folderPath.indexOf(crumb.dataset.folderId);if(idx!==-1){folderPath=folderPath.slice(0,idx+1);renderFolder();}});
   el('folderOverlay').addEventListener('click', (event) => {
     if (event.target === el('folderOverlay')) closeFolder();
   });
@@ -769,9 +852,9 @@ function initListeners() {
     if(!draggedId||!draggingFromFolder||!dragExitedFolder)return;
     event.preventDefault();const id=draggedId;draggedId=null;
     try{await moveBookmark(id,rootId);closeFolder();}catch(e){showToast(e.message);}
-    finally{el('folderOverlay').classList.remove('drag-outside');clearDropClasses();dragExitedFolder=false;draggingFromFolder=false;}
+    finally{finishDrag();}
   });
-  document.addEventListener('dragend',()=>{if(dragExitedFolder){closeFolder();dragExitedFolder=false;}el('folderOverlay').classList.remove('drag-outside');document.activeElement?.blur?.();});
+  document.addEventListener('dragend',()=>{if(dragExitedFolder)closeFolder();finishDrag();},true);
   for (const event of ['onCreated','onChanged','onMoved','onRemoved','onChildrenReordered','onImportEnded']) {
     chrome.bookmarks[event]?.addListener(scheduleRefresh);
   }
