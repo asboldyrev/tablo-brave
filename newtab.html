@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Табло</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="newtab.js" defer></script>
+</head>
+<body>
+  <div class="wallpaper" id="wallpaper" aria-hidden="true"></div>
+  <div class="wallpaper-shade" aria-hidden="true"></div>
+  <div class="page">
+    <main class="content">
+      <section class="hero">
+        <div id="clock" class="clock"></div>
+        <div id="today" class="today"></div>
+        <form id="searchForm" class="search-form" role="search">
+          <input id="searchInput" aria-label="Поиск в интернете или адрес сайта" placeholder="Введите запрос или адрес" autocomplete="off" />
+          <button type="submit" aria-label="Искать">⌕</button>
+        </form>
+      </section>
+      <div class="section-actions main-actions">
+        <button id="addSiteBtn" class="btn btn-secondary" type="button"><span class="btn-icon" id="addSiteIcon"></span>Добавить сайт</button>
+        <button id="addFolderBtn" class="btn btn-secondary" type="button"><span class="btn-icon" id="addFolderIcon"></span>Создать папку</button>
+      </div>
+      <section class="tile-grid" id="rootGrid" aria-label="Плитки сайтов"></section>
+      <span id="rootCount" hidden></span>
+      <div id="rootEmpty" class="empty-state" hidden>
+        <h2>Здесь пока нет плиток</h2><p>Добавь сайт или папку. Данные хранятся в закладках Brave.</p>
+        <button id="firstSiteBtn" class="btn btn-primary" type="button">Добавить сайт</button>
+      </div>
+      <p class="help-tip" id="helpTip">Перетаскивай карточки для изменения порядка и перемещения в папки.</p>
+    </main>
+    <footer class="footer"><span id="wallpaperCredit"></span><button type="button" id="settingsBtn" class="settings-trigger" title="Настройки Табло" aria-label="Настройки Табло">⚙</button></footer>
+  </div>
+  <aside class="settings-panel" id="settingsPanel" hidden aria-label="Вид новой вкладки">
+    <div class="settings-heading"><strong>Вид новой вкладки</strong><button type="button" id="settingsClose" aria-label="Закрыть">×</button></div>
+    <label class="setting"><span>Часы и дата</span><input id="clockToggle" type="checkbox" checked /></label>
+    <label class="setting"><span>Поисковая строка</span><input id="searchToggle" type="checkbox" checked /></label>
+    <label class="setting"><span>Размер плиток</span><select id="tileSizeSelect"><option value="small">Маленький</option><option value="normal">Средний</option><option value="large">Большой</option></select></label>
+    <label class="setting"><span>Вид сайтов</span><select id="displaySelect"><option value="both">Иконка и название</option><option value="icon">Только иконка</option><option value="title">Только название</option></select></label>
+    <label class="setting"><span>Фон</span><select id="backgroundSelect"><option value="bing">Bing: изображение дня</option><option value="plain">Однотонный</option></select></label>
+    <label class="setting"><span>Затемнение фона</span><input id="shadeRange" type="range" min="0" max="80" step="5" /></label>
+    <div class="settings-note">Данные плиток хранятся в папке закладок «Табло Brave». Bing загружает только фоновое изображение дня.</div>
+  </aside>
+  <div id="folderOverlay" class="overlay folder-overlay" hidden>
+    <section id="folderPanel" class="folder-panel" role="dialog" aria-modal="true" aria-labelledby="folderTitle">
+      <div class="folder-topbar">
+        <div class="breadcrumbs" id="breadcrumbs"></div>
+        <button class="icon-btn close-btn" id="closeFolderBtn" type="button" aria-label="Закрыть папку"></button>
+      </div>
+      <div class="folder-heading">
+        <div>
+          <p class="eyebrow">ПАПКА</p>
+          <h2 id="folderTitle"></h2>
+          <p class="folder-summary" id="folderSummary"></p>
+        </div>
+        <div class="section-actions">
+          <button id="folderAddFolderBtn" class="btn btn-secondary btn-small" type="button">+ Папка</button>
+          <button id="folderAddSiteBtn" class="btn btn-primary btn-small" type="button">+ Сайт</button>
+        </div>
+      </div>
+      <div class="folder-content">
+        <div class="tile-grid folder-grid" id="folderGrid"></div>
+        <div id="folderEmpty" class="folder-empty" hidden>Папка пуста. Добавь сайт или перетащи сюда плитку.</div>
+      </div>
+      <p class="folder-hint">Нажми вне окна или Esc, чтобы закрыть папку</p>
+    </section>
+  </div>
+
+  <div id="contextMenu" class="context-menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-menu-action="open" id="menuOpen"></button>
+    <button type="button" role="menuitem" data-menu-action="edit">Изменить</button>
+    <button type="button" role="menuitem" data-menu-action="move">Переместить в...</button>
+    <div class="menu-divider"></div>
+    <button type="button" role="menuitem" data-menu-action="delete" class="danger">Удалить</button>
+  </div>
+
+  <div id="editorOverlay" class="overlay editor-overlay" hidden>
+    <section class="editor-panel" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <div class="editor-header">
+        <div><p class="eyebrow" id="editorEyebrow">ТАБЛО</p><h2 id="editorTitle">Добавить сайт</h2></div>
+        <button class="icon-btn close-btn" id="closeEditorBtn" type="button" aria-label="Закрыть окно"></button>
+      </div>
+      <form id="editorForm">
+        <div id="editorFields">
+          <label class="field"><span>Название</span><input id="titleInput" name="title" type="text" required maxlength="180" autocomplete="off" placeholder="Название сайта" /></label>
+          <label class="field" id="urlField"><span>Адрес сайта</span><input id="urlInput" name="url" type="text" autocomplete="off" spellcheck="false" placeholder="https://example.com" /></label>
+        </div>
+        <div id="siteAppearance" class="site-appearance">
+          <label class="field"><span>Цвет карточки (необязательно)</span><input id="tileColorInput" type="color" value="#ffffff" /></label>
+          <label class="setting"><span>Автоцвет с сайта</span><input id="autoColorInput" type="checkbox" checked /></label>
+          <button class="btn btn-secondary" type="button" id="fetchMetaBtn">Получить название и цвет сайта</button>
+          <div class="settings-note">При загрузке данных браузер запросит разрешение на доступ к конкретному сайту. Настройки сохраняются отдельно от закладок.</div>
+        </div>
+        <label class="field"><span>Расположение</span><select id="parentSelect" name="parentId"></select></label>
+        <p class="form-error" id="formError" role="alert" hidden></p>
+        <div class="editor-actions">
+          <button class="btn btn-secondary" id="cancelEditorBtn" type="button">Отмена</button>
+          <button class="btn btn-primary" id="saveEditorBtn" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
