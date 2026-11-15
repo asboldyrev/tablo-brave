@@ -58,28 +58,30 @@ function favUrl(url) {
   favicon.searchParams.set('size', '64');
   return favicon.href;
 }
+function siteVisual(node, mini=false) {
+  const meta=appearance[node.id]||{};
+  const mode=meta.display||settings.display;
+  const label=esc(node.title||safeDomain(node.url));
+  const src=meta.iconData||meta.iconUrl||favUrl(node.url);
+  const image=`<span class="site-icon"><img loading="lazy" src="${esc(src)}" alt="" /><span class="fallback-letter">${esc((node.title||'?').slice(0,1).toUpperCase())}</span></span>`;
+  return `<span class="site-visual mode-${esc(mode)}">${image}<span class="site-label">${label}</span></span>`;
+}
 function smallFolderIcons(folder) {
-  const children = folder.children || [];
-  return Array.from({length: 4}, (_, index) => {
-    const child = children[index];
-    if (!child) return '<span class="folder-mini"></span>';
-    if (child.url) {
-      return `<span class="folder-mini"><img src="${esc(favUrl(child.url))}" alt="" /></span>`;
-    }
-    return `<span class="folder-mini">${icon('folder')}</span>`;
+  return Array.from({length:4},(_,i)=>{
+    const child=(folder.children||[])[i];
+    if (!child) return '<span class="folder-mini empty"></span>';
+    const c=appearance[child.id]||{};
+    const color=child.url?(validHex(c.color)?c.color:tileColor(child.url)):'#d9d9dd';
+    return `<span class="folder-mini" style="--mini-color:${color};--mini-ink:${contrastText(color)}">${child.url?siteVisual(child,true):`<span class="mini-folder">${smallFolderIcons(child)}</span>`}</span>`;
   }).join('');
 }
 function tileHTML(node) {
   const folder=!node.url;
   const meta=appearance[node.id]||{};
-  const color=folder?'#d9d9de':(validHex(meta.color)?meta.color:'#ffffff');
-  const displayIcon=folder
-    ? `<div class="tile-icon folder-icon">${smallFolderIcons(node)}</div>`
-    : `<div class="tile-icon"><img src="${esc(favUrl(node.url))}" alt="" /><span class="fallback-letter">${esc((node.title||safeDomain(node.url)).slice(0,1).toUpperCase())}</span></div>`;
+  const color=folder?'#d9d9de':(validHex(meta.color)?meta.color:tileColor(node.url));
+  const visual=folder?`<span class="folder-icon">${smallFolderIcons(node)}</span>`:siteVisual(node);
   return `<article class="tile ${folder?'is-folder':'is-site'}" draggable="true" data-id="${esc(node.id)}" data-is-folder="${folder}" title="${esc(node.title)}" style="--site-color:${color};--site-ink:${contrastText(color)}">
-    <button type="button" class="tile-main" data-action="open" data-id="${esc(node.id)}" aria-label="Открыть ${folder?'папку':'сайт'}: ${esc(node.title)}">
-      ${displayIcon}<div class="tile-info"><div class="tile-title">${esc(node.title||safeDomain(node.url))}</div></div>
-    </button>
+    <button type="button" class="tile-main" data-action="open" data-id="${esc(node.id)}" aria-label="Открыть ${folder?'папку':'сайт'}: ${esc(node.title)}">${visual}</button>
     <button type="button" class="tile-more" data-action="menu" data-id="${esc(node.id)}" aria-label="Действия">${icon('more')}</button>
   </article>`;
 }
@@ -88,6 +90,7 @@ let rootId = null;
 let nodeMap = new Map();
 let rootNode = null;
 let folderPath = [];
+let editingMeta={};
 let editing = null; // {mode:'create'|'edit'|'move', type:'site'|'folder', nodeId}
 let contextId = null;
 let draggedId = null;
@@ -136,7 +139,7 @@ async function loadBingWallpaper() {
       const r=await fetch('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=ru-RU');
       if(!r.ok) throw Error('Bing unavailable');
       const data=await r.json();const item=data.images?.[0];
-      if(!item?.url || !item.url.startsWith('/th?id=')) throw Error('Unexpected Bing response');
+      if(!item?.url || !item.url.startsWith('/')) throw Error('Unexpected Bing response');
       image={date:today,url:new URL(item.url,'https://www.bing.com').href,credit:item.copyright||''};
       await chrome.storage.local.set({bingWallpaper:image});
     }
@@ -144,7 +147,59 @@ async function loadBingWallpaper() {
     if(u.origin!=='https://www.bing.com') throw Error('Invalid image origin');
     el('wallpaper').style.backgroundImage=`url("${u.href}")`;
     el('wallpaperCredit').textContent=image.credit;
-  } catch { el('wallpaperCredit').textContent='Фон Bing временно недоступен'; }
+  } catch { const stored=await chrome.storage.local.get('bingWallpaper'); const previous=stored.bingWallpaper; if(previous?.url?.startsWith('https://www.bing.com/')) {el('wallpaper').style.backgroundImage=`url("${previous.url}")`;el('wallpaperCredit').textContent=previous.credit||'';} else el('wallpaperCredit').textContent='Фон Bing временно недоступен'; }
+}
+function parseColor(input) {
+  if (!input) return null;
+  const value=input.trim();
+  if (/^#[0-9a-f]{3}$/i.test(value)) return '#'+[1,2,3].map(i=>value[i]+value[i]).join('');
+  if (validHex(value)) return value;
+  const match=value.match(/^rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)/i);
+  if (match) return '#'+match.slice(1,4).map(n=>Math.min(255,Number(n)).toString(16).padStart(2,'0')).join('');
+  return null;
+}
+async function loadSiteIcon(url,doc) {
+  const icon=doc.querySelector('link[rel~="apple-touch-icon"]')||doc.querySelector('link[rel="icon"]')||doc.querySelector('link[rel="shortcut icon"]');
+  const origin=new URL(url).origin;
+  const href=new URL(icon?.getAttribute('href')||'/favicon.ico',url);
+  if (!['http:','https:'].includes(href.protocol)) return {};
+  // Only fetch images from an origin we have explicitly obtained permission for.
+  if(href.origin!==origin) return {iconUrl:href.href};
+  try {
+    const response=await fetch(href.href,{credentials:'omit',signal:AbortSignal.timeout(6500)});
+    if(!response.ok) return {iconUrl:href.href};
+    const blob=await response.blob();
+    if(blob.size>70000 || !/^image\/(png|jpeg|webp|gif|svg\+xml|x-icon|vnd\.microsoft\.icon)$/.test(blob.type)) return {iconUrl:href.href};
+    const iconData=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);
+    });
+    return {iconData,iconUrl:href.href};
+  } catch { return {iconUrl:href.href}; }
+}
+async function colorFromIcon(iconData) {
+  if(!iconData) return null;
+  if(iconData.startsWith('data:image/svg')) {
+    try {
+      const xml=atob(iconData.split(',')[1]||'');
+      const candidates=[...xml.matchAll(/(?:fill|stroke|stop-color)=["'](#[0-9a-f]{3,6})["']/ig)].map(match=>parseColor(match[1]));
+      return candidates.find(color=>color && color!=='#ffffff' && color!=='#000000')||null;
+    } catch{return null;}
+  }
+  try {
+    const image=new Image();image.src=iconData;await image.decode();
+    const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,32,32);
+    const pixels=ctx.getImageData(0,0,32,32).data, colors=[];
+    for(let i=0;i<pixels.length;i+=4){const [r,g,b,a]=pixels.slice(i,i+4);const max=Math.max(r,g,b),min=Math.min(r,g,b);
+      if(a<170 || max<45 || min>235 || max-min<35)continue;
+      colors.push([r,g,b]);
+    }
+    if(!colors.length)return null;
+    // Quantize and select a frequent saturated bucket; transparent background is ignored.
+    const buckets=new Map();for(const color of colors){const key=color.map(n=>Math.round(n/32)*32).join(',');buckets.set(key,(buckets.get(key)||0)+1);}
+    const rgb=[...buckets].sort((a,b)=>b[1]-a[1])[0][0].split(',').map(n=>Math.min(255,Number(n)));
+    return '#'+rgb.map(n=>n.toString(16).padStart(2,'0')).join('');
+  }catch{return null;}
 }
 async function fetchSiteMetadata(url) {
   const parsed=new URL(url);
@@ -152,19 +207,20 @@ async function fetchSiteMetadata(url) {
   const origin=parsed.origin+'/*';
   const granted=await chrome.permissions.contains({origins:[origin]}) || await chrome.permissions.request({origins:[origin]});
   if(!granted) throw Error('Разрешение не предоставлено');
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),7000);
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);
   try {
     const response=await fetch(url,{signal:controller.signal,credentials:'omit'});
-    if(!response.ok) throw Error('Сайт не ответил');
-    const html=(await response.text()).slice(0,400000);
+    if(!response.ok)throw Error(`Сайт ответил HTTP ${response.status}`);
+    const html=(await response.text()).slice(0,500000);
     const doc=new DOMParser().parseFromString(html,'text/html');
-    const theme=doc.querySelector('meta[name="theme-color"]')?.getAttribute('content');
-    const og=doc.querySelector('meta[property="og:site_name"]')?.getAttribute('content');
-    const title=(og||doc.querySelector('title')?.textContent||'').trim().slice(0,180);
-    return {title,color:validHex(theme)?theme:null};
-  } finally { clearTimeout(timer); }
+    const theme=doc.querySelector('meta[name="theme-color"]')?.getAttribute('content')||doc.querySelector('meta[name="msapplication-TileColor"]')?.getAttribute('content');
+    const title=(doc.querySelector('meta[property="og:site_name"]')?.content||doc.querySelector('title')?.textContent||'').trim().slice(0,180);
+    const icon=await loadSiteIcon(url,doc);
+    const color=parseColor(theme)||await colorFromIcon(icon.iconData);
+    return {title,color,...icon};
+  }finally{clearTimeout(timer);}
 }
+
 function updateClock() {
   const now=new Date();
   el('clock').textContent=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(now);
@@ -214,6 +270,19 @@ async function ensureRoot() {
   await chrome.storage.local.set({rootFolderId: root.id});
   return root.id;
 }
+async function refreshRootFolderChoices() {
+  const [tree]=await chrome.bookmarks.getTree();
+  const options=[];
+  function walk(node,depth){
+    if(node.url)return;
+    if(node.parentId && node.id!=='0') options.push({id:node.id,label:'　'.repeat(depth)+node.title});
+    (node.children||[]).forEach(child=>walk(child,depth+1));
+  }
+  walk(tree,0);
+  const selector=el('rootFolderSelect');
+  selector.innerHTML=options.map(option=>`<option value="${esc(option.id)}">${esc(option.label)}</option>`).join('');
+  selector.value=rootId;
+}
 async function refreshTree() {
   const revision = ++renderRevision;
   try {
@@ -235,6 +304,7 @@ async function refreshTree() {
     }
     folderPath = validPath;
     render();
+    void refreshRootFolderChoices();
   } catch (error) {
     showToast(`Не удалось прочитать закладки: ${error.message}`);
   }
@@ -259,12 +329,10 @@ function renderFolder() {
   el('folderOverlay').hidden = false;
   el('folderTitle').textContent = folder.title;
   const count = (folder.children || []).length;
-  el('folderSummary').textContent = count === 1 ? '1 элемент' : `${count} элементов`;
   el('folderGrid').innerHTML = (folder.children || []).map(tileHTML).join('');
   el('folderEmpty').hidden = count !== 0;
   el('folderGrid').hidden = count === 0;
-  const crumbs = [{id: rootId, title: 'Табло'}, ...folderPath.map((id) => ({id, title: nodeMap.get(id)?.title || 'Папка'}))];
-  el('breadcrumbs').innerHTML = crumbs.map((crumb, i) => `${i ? '<span class="crumb-chevron">›</span>' : ''}<button type="button" class="crumb ${i === crumbs.length - 1 ? 'active' : ''}" data-folder-id="${esc(crumb.id)}" title="${esc(crumb.title)}">${esc(crumb.title)}</button>`).join('');
+
 }
 function openFolder(nodeId) {
   const node = nodeMap.get(nodeId);
@@ -338,6 +406,7 @@ function openEditor(mode, type, nodeId = null) {
   el('siteAppearance').hidden = type === 'folder' || mode === 'move';
   el('tileColorInput').value = validHex(appearance[nodeId]?.color) ? appearance[nodeId].color : defaultColor;
   el('autoColorInput').checked = appearance[nodeId]?.autoColor !== false;
+  editingMeta={};
   el('titleInput').value = node?.title || '';
   el('urlInput').value = node?.url || '';
   el('urlInput').required = type === 'site' && mode !== 'move';
@@ -375,7 +444,7 @@ async function submitEditor(event) {
       const details = {parentId, title};
       if (type === 'site') details.url = url;
       const created=await chrome.bookmarks.create(details);
-      if(type==='site') { appearance[created.id]={color:el('tileColorInput').value,autoColor:el('autoColorInput').checked}; await saveAppearance(); }
+      if(type==='site') { appearance[created.id]={color:el('tileColorInput').value,autoColor:el('autoColorInput').checked,...editingMeta}; await saveAppearance(); }
       showToast(type === 'folder' ? 'Папка создана' : 'Сайт добавлен');
     } else if (mode === 'move') {
       if (parentId !== parentOf(nodeId)) await chrome.bookmarks.move(nodeId, {parentId});
@@ -384,7 +453,7 @@ async function submitEditor(event) {
       const changes = {title};
       if (type === 'site') changes.url = url;
       await chrome.bookmarks.update(nodeId, changes);
-      if(type==='site') { appearance[nodeId]={color:el('tileColorInput').value,autoColor:el('autoColorInput').checked}; await saveAppearance(); }
+      if(type==='site') { appearance[nodeId]={...appearance[nodeId],color:el('tileColorInput').value,autoColor:el('autoColorInput').checked,...editingMeta}; await saveAppearance(); }
       if (parentId !== parentOf(nodeId)) await chrome.bookmarks.move(nodeId, {parentId});
       showToast('Изменения сохранены');
     }
@@ -430,10 +499,10 @@ function bindGrid(grid) {
     openContext(tile.dataset.id, tile);
   });
   grid.addEventListener('load', (event) => {
-    if (event.target.matches('.tile-icon > img')) event.target.classList.add('is-loaded');
+    if (event.target.matches('.site-icon > img')) event.target.classList.add('is-loaded');
   }, true);
   grid.addEventListener('error', (event) => {
-    if (event.target.matches('.tile-icon > img')) event.target.style.display = 'none';
+    if (event.target.matches('.site-icon > img')) event.target.style.display = 'none';
   }, true);
   grid.addEventListener('dragstart', (event) => {
     const tile = event.target.closest('.tile');
@@ -508,35 +577,6 @@ async function moveBookmark(id, parentId, index = null) {
   await refreshTree();
   showToast('Плитка перемещена');
 }
-function bindBreadcrumbDrop() {
-  el('breadcrumbs').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-folder-id]');
-    if (!button) return;
-    const targetId = button.dataset.folderId;
-    if (targetId === rootId) { closeFolder(); return; }
-    const index = folderPath.indexOf(targetId);
-    if (index >= 0) { folderPath = folderPath.slice(0, index + 1); renderFolder(); }
-  });
-  el('breadcrumbs').addEventListener('dragover', (event) => {
-    const crumb = event.target.closest('[data-folder-id]');
-    if (crumb && draggedId && canMove(draggedId, crumb.dataset.folderId)) {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-      clearDropClasses();
-      crumb.classList.add('drop-folder');
-    }
-  });
-  el('breadcrumbs').addEventListener('drop', async (event) => {
-    const crumb = event.target.closest('[data-folder-id]');
-    if (!crumb || !draggedId) return;
-    event.preventDefault();
-    const id = draggedId;
-    draggedId = null;
-    clearDropClasses();
-    try { await moveBookmark(id, crumb.dataset.folderId); }
-    catch (error) { showToast(error.message); }
-  });
-}
 
 function initListeners() {
   el('addSiteIcon').innerHTML = icon('plus');
@@ -551,8 +591,9 @@ function initListeners() {
   el('addFolderBtn').addEventListener('click', addFolder);
   el('folderAddSiteBtn').addEventListener('click', addSite);
   el('folderAddFolderBtn').addEventListener('click', addFolder);
-  el('settingsBtn').addEventListener('click',()=>{el('settingsPanel').hidden=!el('settingsPanel').hidden;});
+  el('settingsBtn').addEventListener('click',(event)=>{event.stopPropagation();el('settingsPanel').hidden=!el('settingsPanel').hidden;});
   el('settingsClose').addEventListener('click',()=>{el('settingsPanel').hidden=true;});
+  el('rootFolderSelect').addEventListener('change',async()=>{const selected=el('rootFolderSelect').value;const [folder]=await chrome.bookmarks.get(selected);if(folder.url)return;rootId=selected;folderPath=[];await chrome.storage.local.set({rootFolderId:selected});await refreshTree();showToast('Папка Табло изменена');});
   for(const [id,key,prop] of [['tileSizeSelect','tileSize','value'],['displaySelect','display','value'],['backgroundSelect','background','value'],['shadeRange','shade','value'],['clockToggle','clock','checked'],['searchToggle','search','checked']]) {
     el(id).addEventListener('change',()=>void updateSettings(key,key==='shade'?Number(el(id)[prop]):el(id)[prop]));
   }
@@ -567,6 +608,7 @@ function initListeners() {
       const result=await fetchSiteMetadata(normaliseUrl(el('urlInput').value));
       if(result.title)el('titleInput').value=result.title;
       if(result.color && el('autoColorInput').checked)el('tileColorInput').value=result.color;
+      editingMeta={iconData:result.iconData,iconUrl:result.iconUrl};
       showToast('Данные сайта получены');
     } catch(error){showToast('Не удалось загрузить данные: '+error.message);}
     finally {btn.disabled=false;}
@@ -595,17 +637,21 @@ function initListeners() {
     else if (action === 'delete') void deleteNode(id);
   });
   document.addEventListener('pointerdown', (event) => {
+    if (!el('settingsPanel').hidden && !event.target.closest('#settingsPanel') && !event.target.closest('#settingsBtn')) el('settingsPanel').hidden=true;
     if (!el('contextMenu').hidden && !event.target.closest('#contextMenu') && !event.target.closest('.tile-more')) closeContext();
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (!el('editorOverlay').hidden) closeEditor();
+    else if (!el('settingsPanel').hidden) el('settingsPanel').hidden=true;
     else if (!el('contextMenu').hidden) closeContext();
     else if (!el('folderOverlay').hidden) closeFolder();
   });
   bindGrid(el('rootGrid'));
   bindGrid(el('folderGrid'));
-  bindBreadcrumbDrop();
+  el('folderBackBtn').addEventListener('click',()=>{
+    if(folderPath.length>1){folderPath.pop();renderFolder();} else closeFolder();
+  });
   for (const event of ['onCreated','onChanged','onMoved','onRemoved','onChildrenReordered','onImportEnded']) {
     chrome.bookmarks[event]?.addListener(scheduleRefresh);
   }
