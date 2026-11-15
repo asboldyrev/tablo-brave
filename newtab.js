@@ -14,7 +14,7 @@ const ICONS = {
   link: '<path d="M7 17 17 7M8 7h9v9"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
-  settings: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.91 1.91-.06-.06A1.65 1.65 0 0 0 16 18.4a1.65 1.65 0 0 0-1 1.5V21h-2.7v-1.1a1.65 1.65 0 0 0-1-1.5 1.65 1.65 0 0 0-1.82.33l-.06.06-1.91-1.91.06-.06A1.65 1.65 0 0 0 7.9 15a1.65 1.65 0 0 0-1.5-1H5.3v-2.7h1.1a1.65 1.65 0 0 0 1.5-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06L9.42 6.5l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.5V4.3H15v1.1a1.65 1.65 0 0 0 1 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.91 1.91-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.5 1H22v2.7h-1.1a1.65 1.65 0 0 0-1.5 1Z"/>',
+  settings: '<path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/>',
   moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.804A6 6 0 0 0 20.18 12.08c.344-.215.826-.004.805.405"/>',
   cloud: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h11"/>',
@@ -136,7 +136,7 @@ let refreshTimer = null;
 let toastTimer = null;
 let tileSize = 'normal';
 let appearance = {};
-let settings = {tileSize:'normal', display:'both', background:'bing', shade:25, clock:true, search:true, colorSource:'site'};
+let settings = {tileSize:'normal', display:'both', background:'bing', shade:25, clock:true, search:true, colorSource:'site', weather:false, weatherPlace:null};
 const defaultColor = '#ffffff';
 function validHex(value) { return /^#[0-9a-f]{6}$/i.test(value || ''); }
 function contrastText(hex) {
@@ -146,6 +146,24 @@ function contrastText(hex) {
   return (luminance[0]*.2126 + luminance[1]*.7152 + luminance[2]*.0722) > .42 ? '#22232b' : '#ffffff';
 }
 async function saveAppearance() { await chrome.storage.local.set({appearance}); }
+// Measure the rendered board instead of guessing widths for the three tile sizes.
+// ResizeObserver also catches responsive column changes without affecting tile centering.
+function syncGlassWidth() {
+  const board=el('rootGrid');
+  if (!board || board.hidden) return;
+  const rect=board.getBoundingClientRect();
+  if (rect.width>0) {
+    document.documentElement.style.setProperty('--tablo-board-width',`${rect.width}px`);
+    document.documentElement.style.setProperty('--tablo-board-left',`${rect.left}px`);
+  }
+}
+function observeGlassWidth() {
+  const board=el('rootGrid');
+  if (!board) return;
+  if (typeof ResizeObserver==='function') new ResizeObserver(syncGlassWidth).observe(board);
+  window.addEventListener('resize',syncGlassWidth,{passive:true});
+  requestAnimationFrame(syncGlassWidth);
+}
 function applySettings() {
   document.body.dataset.display=settings.display;
   if(rootNode) render();
@@ -159,6 +177,10 @@ function applySettings() {
   el('shadeRange').value=settings.shade;
   el('clockToggle').checked=settings.clock;
   el('searchToggle').checked=settings.search;
+  el('weatherToggle').checked=Boolean(settings.weather);
+  el('weatherCityInput').value=settings.weatherPlace?.name||'';
+  el('weatherWidget').hidden=!(settings.weather && settings.weatherPlace);
+  if(settings.weather && settings.weatherPlace) renderWeatherFromCache();
   el('colorSourceDefault').value=settings.colorSource||'site';
   el('wallpaper').style.display=settings.background==='plain'?'none':'block';
   el('wallpaperCredit').hidden=settings.background==='plain';
@@ -167,6 +189,7 @@ async function updateSettings(key,value) {
   settings[key]=value; applySettings();
   await chrome.storage.local.set({tabloSettings:settings});
   if(key==='background' && value==='bing') void loadBingWallpaper();
+  if(key==='weather' && value && settings.weatherPlace) void refreshWeather();
 }
 async function loadBingWallpaper() {
   if(settings.background!=='bing') return;
@@ -353,6 +376,86 @@ async function refreshAllCardData() {
   showToast(`Обновлено карточек: ${success}. Не удалось: ${failed}`);
 }
 
+// Open-Meteo: city is chosen explicitly. No device location permissions or automatic lookups.
+const WEATHER_TTL_MS=60*60*1000;
+let weatherCache=null;
+let weatherBusy=false;
+function weatherIconForCode(code,day=true) {
+  if(code===0) return day?'sun':'moon';
+  if(code<=2) return day?'cloudSun':'cloud';
+  if(code===3) return 'cloud';
+  if(code===45||code===48) return 'cloudFog';
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return 'cloudRain';
+  if([71,73,75,77,85,86].includes(code)) return 'cloudSnow';
+  if([95,96,99].includes(code)) return 'cloudLightning';
+  return 'cloud';
+}
+function renderWeatherFromCache() {
+  const widget=el('weatherWidget');
+  const place=settings.weatherPlace;
+  widget.hidden=!(settings.weather && place);
+  if(widget.hidden)return;
+  const data=weatherCache?.placeId===place.id?weatherCache:null;
+  const reading=data?.reading;
+  if(!reading||!Number.isFinite(reading.temperature_2m)) {
+    el('weatherIcon').innerHTML=icon('cloud');
+    el('weatherTemperature').textContent='—';
+    widget.title=`${place.name}: пока нет данных`;
+    return;
+  }
+  el('weatherIcon').innerHTML=icon(weatherIconForCode(reading.weather_code, reading.is_day===1));
+  el('weatherTemperature').textContent=`${Math.round(reading.temperature_2m)}°`;
+  widget.title=`Погода · ${place.name}, ${place.country||''} · обновлено ${new Date(data.fetchedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`;
+}
+async function refreshWeather(force=false) {
+  const place=settings.weatherPlace;
+  if(!settings.weather || !place || weatherBusy)return;
+  if(!force && weatherCache?.placeId===place.id && Date.now()-weatherCache.fetchedAt<WEATHER_TTL_MS){renderWeatherFromCache();return;}
+  weatherBusy=true;
+  try {
+    const qs=new URLSearchParams({latitude:String(place.latitude),longitude:String(place.longitude),current:'temperature_2m,weather_code,is_day',timezone:'auto',temperature_unit:'celsius'});
+    const response=await fetch(`https://api.open-meteo.com/v1/forecast?${qs}`);
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const data=await response.json();
+    if(!Number.isFinite(data.current?.temperature_2m))throw new Error('Температура отсутствует');
+    weatherCache={placeId:place.id,fetchedAt:Date.now(),reading:{temperature_2m:data.current.temperature_2m,weather_code:data.current.weather_code,is_day:data.current.is_day}};
+    await chrome.storage.local.set({weatherCache});
+    el('weatherStatus').textContent=`Обновлено: ${new Date(weatherCache.fetchedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch(e) { el('weatherStatus').textContent=`Не удалось обновить погоду: ${e.message}`; }
+  finally {weatherBusy=false;renderWeatherFromCache();}
+}
+async function searchWeatherPlaces() {
+  const name=el('weatherCityInput').value.trim();
+  if(name.length<2) {el('weatherStatus').textContent='Введите хотя бы две буквы названия города.';return;}
+  const btn=el('weatherFindBtn');btn.disabled=true;
+  el('weatherStatus').textContent='Ищу населённый пункт…';
+  try {
+    const qs=new URLSearchParams({name,count:'8',language:'ru',format:'json'});
+    const response=await fetch(`https://geocoding-api.open-meteo.com/v1/search?${qs}`);
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const data=await response.json();
+    const places=(data.results||[]).filter(p=>Number.isFinite(p.latitude)&&Number.isFinite(p.longitude));
+    const select=el('weatherPlaceSelect');select.replaceChildren();
+    for(const place of places){
+      const opt=document.createElement('option');opt.value=String(place.id);opt.textContent=[place.name,place.admin1,place.country].filter(Boolean).join(', ');
+      opt.dataset.place=JSON.stringify({id:place.id,name:place.name,country:place.country,latitude:place.latitude,longitude:place.longitude});select.append(opt);
+    }
+    select.hidden=!places.length;
+    el('weatherSavePlaceBtn').hidden=!places.length;
+    el('weatherStatus').textContent=places.length?'Выбери подходящий населённый пункт и нажми «Сохранить».':'Ничего не найдено. Уточни название.';
+  }catch(e){el('weatherStatus').textContent=`Не удалось найти город: ${e.message}`;}
+  finally{btn.disabled=false;}
+}
+async function saveWeatherPlace() {
+  const selected=el('weatherPlaceSelect').selectedOptions[0];
+  if(!selected?.dataset.place)return;
+  const place=JSON.parse(selected.dataset.place);
+  settings.weatherPlace=place;settings.weather=true;weatherCache=null;
+  await chrome.storage.local.set({tabloSettings:settings,weatherCache:null});
+  el('weatherPlaceSelect').hidden=true;el('weatherSavePlaceBtn').hidden=true;
+  applySettings();el('weatherStatus').textContent=`Выбран: ${place.name}. Загружаю погоду…`;
+  await refreshWeather(true);
+}
 function updateClock() {
   const now=new Date();
   el('clock').textContent=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(now);
@@ -754,6 +857,7 @@ function initListeners() {
   el('closeEditorBtn').innerHTML = icon('close');
   el('settingsBtn').innerHTML = icon('settings');
   el('settingsClose').innerHTML = icon('close');
+  el('weatherFindBtn').innerHTML = icon('search');
   updateClock(); setInterval(updateClock,30000);
   const addSite = () => openEditor('create', 'site');
   const addFolder = () => openEditor('create', 'folder');
@@ -763,6 +867,12 @@ function initListeners() {
   el('settingsBtn').addEventListener('click',(event)=>{event.stopPropagation();el('settingsPanel').hidden=!el('settingsPanel').hidden;});
   el('settingsClose').addEventListener('click',()=>{el('settingsPanel').hidden=true;});
   el('refreshCardDataBtn').addEventListener('click',()=>void refreshAllCardData());
+  el('weatherToggle').addEventListener('change',()=>{void updateSettings('weather',el('weatherToggle').checked);});
+  el('weatherFindBtn').addEventListener('click',()=>void searchWeatherPlaces());
+  el('weatherSavePlaceBtn').addEventListener('click',()=>void saveWeatherPlace());
+  el('weatherCityInput').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();void searchWeatherPlaces();}});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshWeather();});
+  setInterval(()=>{if(!document.hidden)void refreshWeather();},60*1000);
   el('colorSourceDefault').addEventListener('change',()=>void updateSettings('colorSource',el('colorSourceDefault').value));
   el('colorSourceInput').addEventListener('change',()=>{const c=editingMeta[el('colorSourceInput').value==='generated'?'generatedColor':'themeColor'];if(validHex(c))el('tileColorInput').value=c;});
   el('rootFolderSelect').addEventListener('change',async()=>{const selected=el('rootFolderSelect').value;const [folder]=await chrome.bookmarks.get(selected);if(folder.url)return;rootId=selected;folderPath=[];await chrome.storage.local.set({rootFolderId:selected});await refreshTree();showToast('Папка Табло изменена');});
@@ -861,15 +971,17 @@ function initListeners() {
 }
 async function main() {
   initListeners();
+  observeGlassWidth();
   if (!globalThis.chrome?.bookmarks || !chrome.storage) {
     el('rootEmpty').hidden = false;
     el('rootEmpty').querySelector('h2').textContent = 'Открой страницу через расширение Brave';
     return;
   }
   try {
-    const stored=await chrome.storage.local.get({appearance:{},tabloSettings:{}});
+    const stored=await chrome.storage.local.get({appearance:{},tabloSettings:{},weatherCache:null});
+    weatherCache=stored.weatherCache;
     appearance=stored.appearance||{};settings={...settings,...stored.tabloSettings};
-    applySettings();void loadBingWallpaper();
+    applySettings();void loadBingWallpaper();void refreshWeather();
     rootId = await ensureRoot(); await refreshTree();
   }
   catch (error) { showToast('Ошибка запуска: ' + error.message); }

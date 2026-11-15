@@ -397,3 +397,116 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
 .settings-trigger,.settings-heading button {display:grid;place-items:center;padding:0;line-height:1;}
 .settings-trigger svg {width:21px;height:21px;display:block;}
 .settings-heading button svg {width:18px;height:18px;display:block;}
+
+/* v0.6 — compact weather, independent of tile centering */
+.hero {position:fixed;}
+.weather-widget {position:absolute;right:0;top:4px;display:flex;align-items:center;justify-content:center;gap:7px;color:#fff;font-size:23px;font-weight:550;text-shadow:0 2px 10px #1117;background:#24202e3d;border:1px solid #ffffff20;border-radius:13px;padding:7px 10px;backdrop-filter:blur(6px);white-space:nowrap;}
+.weather-widget[hidden] {display:none!important;}
+.weather-icon,.weather-icon svg {display:block;width:25px;height:25px;}
+.weather-settings {background:#f7f6f9;border:1px solid #e9e7ed;border-radius:12px;padding:11px;margin:7px 0 13px;color:#4b4956;}
+.weather-city-label {display:block;font-size:12px;font-weight:600;margin-bottom:7px;}
+.weather-city-row {display:flex;gap:6px;width:100%;}
+.weather-city-row input {flex:1;min-width:0;font-size:12px;padding:8px 9px;border:1px solid #dddbe4;border-radius:8px;background:#fff;color:#262631;}
+.weather-city-row button {width:37px;flex:none;display:grid;place-items:center;background:#fff;border:1px solid #dddbe4;border-radius:8px;color:#4a4755;}
+.weather-city-row button svg {width:18px;height:18px;}
+#weatherPlaceSelect {width:100%;margin-top:9px;border:1px solid #dddbe4;border-radius:8px;padding:8px;font-size:12px;background:white;}
+#weatherSavePlaceBtn {width:100%;margin-top:8px;text-align:center;}
+.weather-status {font-size:11px;line-height:1.4;color:#817c8d;margin-top:9px;}
+@media(max-width:680px){.weather-widget{right:0;top:0;font-size:16px;padding:5px 7px;}.weather-icon,.weather-icon svg{width:20px;height:20px;}.clock{font-size:clamp(48px,8vw,72px);}}
+
+/* v0.6.1 — consistent frosted surfaces, separate from the wallpaper. */
+:root {
+  --tablo-glass-bg: rgba(113, 103, 126, .28);
+  --tablo-glass-border: rgba(255, 255, 255, .22);
+  --tablo-glass-blur: blur(13px) saturate(1.18);
+  --tablo-glass-shadow: 0 7px 24px rgba(18, 13, 30, .12);
+}
+.hero {
+  top: 18px;
+  width: min(960px, calc(100vw - 250px));
+  max-width: none;
+  box-sizing: border-box;
+  padding: 14px 18px 18px;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 20px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+}
+.content .tile-grid:before {
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+}
+.weather-widget {
+  position: fixed;
+  top: 20px;
+  right: 22px;
+  left: auto;
+  z-index: 18;
+  min-height: 44px;
+  box-sizing: border-box;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 12px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+  text-shadow: 0 1px 5px rgba(0,0,0,.35);
+  padding: 8px 12px;
+}
+.settings-trigger {
+  width: 44px;
+  height: 44px;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 12px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+  color: #fff;
+}
+.settings-trigger svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+}
+.settings-trigger:hover,
+.weather-widget:hover {
+  background: rgba(138, 128, 151, .36);
+}
+@media (max-width: 950px) {
+  .hero {width: min(680px, calc(100vw - 260px));}
+}
+@media (max-width: 650px) {
+  .hero {top: 78px; width: calc(100vw - 32px); padding: 12px;}
+  .weather-widget {top: 14px; right: 16px; min-height: 38px; padding: 6px 9px;}
+  .settings-trigger {width: 42px;height: 42px;}
+}
+
+/* v0.6.2 — match the frosted headers and board to the same outer width. */
+:root { --tablo-glass-inset:18px; --tablo-board-width:960px; }
+.content #rootGrid {
+  padding:var(--tablo-glass-inset);
+  border-radius:20px;
+  box-sizing:border-box;
+}
+.hero {
+  width:min(var(--tablo-board-width),calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  padding:var(--tablo-glass-inset);
+  box-sizing:border-box;
+}
+.hero .search-form {width:100%;max-width:none;}
+/* When search is off, only the clock/date should have glass around it. */
+body.search-off:not(.clock-off) .hero {
+  width:max-content;
+  max-width:calc(100vw - 24px);
+}
+
+/* Match the exact horizontal origin, including narrow responsive layouts. */
+.hero {left:var(--tablo-board-left, 50%);transform:none;}
+body.search-off:not(.clock-off) .hero {left:50%;transform:translateX(-50%);}

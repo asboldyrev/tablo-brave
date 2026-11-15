@@ -12,6 +12,9 @@
   <div class="wallpaper" id="wallpaper" aria-hidden="true"></div>
   <div class="wallpaper-shade" aria-hidden="true"></div>
   <div class="page">
+    <div class="weather-widget" id="weatherWidget" hidden role="status" aria-live="polite" title="Погода">
+      <span id="weatherIcon" class="weather-icon"></span><span id="weatherTemperature">—</span>
+    </div>
     <main class="content">
       <section class="hero">
         <div id="clock" class="clock"></div>
@@ -38,6 +41,14 @@
   <aside class="settings-panel" id="settingsPanel" hidden aria-label="Вид новой вкладки">
     <div class="settings-heading"><strong>Вид новой вкладки</strong><button type="button" id="settingsClose" aria-label="Закрыть"></button></div>
     <label class="setting"><span>Часы и дата</span><input id="clockToggle" type="checkbox" checked /></label>
+    <label class="setting"><span>Погода</span><input id="weatherToggle" type="checkbox" /></label>
+    <div class="weather-settings">
+      <label for="weatherCityInput" class="weather-city-label">Населённый пункт</label>
+      <div class="weather-city-row"><input id="weatherCityInput" type="text" placeholder="Например, Москва" autocomplete="off" /><button id="weatherFindBtn" type="button" aria-label="Найти населённый пункт"></button></div>
+      <select id="weatherPlaceSelect" aria-label="Результаты поиска города" hidden></select>
+      <button id="weatherSavePlaceBtn" type="button" class="btn btn-secondary" hidden>Сохранить город</button>
+      <div id="weatherStatus" class="weather-status" role="status">Обновление не чаще раза в час · Open-Meteo</div>
+    </div>
     <label class="setting"><span>Поисковая строка</span><input id="searchToggle" type="checkbox" checked /></label>
     <label class="setting"><span>Размер плиток</span><select id="tileSizeSelect"><option value="small">Маленький</option><option value="normal">Средний</option><option value="large">Большой</option></select></label>
     <label class="setting"><span>Вид сайтов</span><select id="displaySelect"><option value="both">Иконка и название</option><option value="icon">Только иконка</option><option value="title">Только название</option></select></label>
