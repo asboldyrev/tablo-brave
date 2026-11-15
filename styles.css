@@ -397,3 +397,19 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
 .settings-trigger,.settings-heading button {display:grid;place-items:center;padding:0;line-height:1;}
 .settings-trigger svg {width:21px;height:21px;display:block;}
 .settings-heading button svg {width:18px;height:18px;display:block;}
+
+/* v0.6 — compact weather, independent of tile centering */
+.hero {position:fixed;}
+.weather-widget {position:absolute;right:0;top:4px;display:flex;align-items:center;justify-content:center;gap:7px;color:#fff;font-size:23px;font-weight:550;text-shadow:0 2px 10px #1117;background:#24202e3d;border:1px solid #ffffff20;border-radius:13px;padding:7px 10px;backdrop-filter:blur(6px);white-space:nowrap;}
+.weather-widget[hidden] {display:none!important;}
+.weather-icon,.weather-icon svg {display:block;width:25px;height:25px;}
+.weather-settings {background:#f7f6f9;border:1px solid #e9e7ed;border-radius:12px;padding:11px;margin:7px 0 13px;color:#4b4956;}
+.weather-city-label {display:block;font-size:12px;font-weight:600;margin-bottom:7px;}
+.weather-city-row {display:flex;gap:6px;width:100%;}
+.weather-city-row input {flex:1;min-width:0;font-size:12px;padding:8px 9px;border:1px solid #dddbe4;border-radius:8px;background:#fff;color:#262631;}
+.weather-city-row button {width:37px;flex:none;display:grid;place-items:center;background:#fff;border:1px solid #dddbe4;border-radius:8px;color:#4a4755;}
+.weather-city-row button svg {width:18px;height:18px;}
+#weatherPlaceSelect {width:100%;margin-top:9px;border:1px solid #dddbe4;border-radius:8px;padding:8px;font-size:12px;background:white;}
+#weatherSavePlaceBtn {width:100%;margin-top:8px;text-align:center;}
+.weather-status {font-size:11px;line-height:1.4;color:#817c8d;margin-top:9px;}
+@media(max-width:680px){.weather-widget{right:0;top:0;font-size:16px;padding:5px 7px;}.weather-icon,.weather-icon svg{width:20px;height:20px;}.clock{font-size:clamp(48px,8vw,72px);}}
