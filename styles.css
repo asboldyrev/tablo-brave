@@ -380,6 +380,13 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
 .tile:focus,.tile-main:focus{outline:none;}
 #refreshCardDataBtn{width:100%;white-space:normal;text-align:center;}
 @media(max-height:650px){.clock{font-size:65px}.content{padding:0 12px;}}
+
 /* v0.5.1: the fixed footer controls must not extend the 100dvh layout. */
 .footer {position:fixed;inset:auto 0 0;height:0;margin:0;padding:0;max-width:none;pointer-events:none;}
 .footer #wallpaperCredit,.footer .settings-trigger{pointer-events:auto;}
+
+/* v0.5.2: show only one visual layer in folder previews. */
+.folder-mini.is-nested-folder {background:#d5d3da;}
+.nested-folder-placeholder {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:2px;padding:2px;width:100%;height:100%;overflow:hidden;}
+.folder-preview-color {display:block;min-width:0;min-height:0;border-radius:1px;}
+.folder-preview-color.empty {background:rgba(108,105,118,.23);}
