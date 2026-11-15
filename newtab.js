@@ -146,6 +146,24 @@ function contrastText(hex) {
   return (luminance[0]*.2126 + luminance[1]*.7152 + luminance[2]*.0722) > .42 ? '#22232b' : '#ffffff';
 }
 async function saveAppearance() { await chrome.storage.local.set({appearance}); }
+// Measure the rendered board instead of guessing widths for the three tile sizes.
+// ResizeObserver also catches responsive column changes without affecting tile centering.
+function syncGlassWidth() {
+  const board=el('rootGrid');
+  if (!board || board.hidden) return;
+  const rect=board.getBoundingClientRect();
+  if (rect.width>0) {
+    document.documentElement.style.setProperty('--tablo-board-width',`${rect.width}px`);
+    document.documentElement.style.setProperty('--tablo-board-left',`${rect.left}px`);
+  }
+}
+function observeGlassWidth() {
+  const board=el('rootGrid');
+  if (!board) return;
+  if (typeof ResizeObserver==='function') new ResizeObserver(syncGlassWidth).observe(board);
+  window.addEventListener('resize',syncGlassWidth,{passive:true});
+  requestAnimationFrame(syncGlassWidth);
+}
 function applySettings() {
   document.body.dataset.display=settings.display;
   if(rootNode) render();
@@ -953,6 +971,7 @@ function initListeners() {
 }
 async function main() {
   initListeners();
+  observeGlassWidth();
   if (!globalThis.chrome?.bookmarks || !chrome.storage) {
     el('rootEmpty').hidden = false;
     el('rootEmpty').querySelector('h2').textContent = 'Открой страницу через расширение Brave';
