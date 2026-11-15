@@ -13,6 +13,16 @@ const ICONS = {
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   link: '<path d="M7 17 17 7M8 7h9v9"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  settings: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.91 1.91-.06-.06A1.65 1.65 0 0 0 16 18.4a1.65 1.65 0 0 0-1 1.5V21h-2.7v-1.1a1.65 1.65 0 0 0-1-1.5 1.65 1.65 0 0 0-1.82.33l-.06.06-1.91-1.91.06-.06A1.65 1.65 0 0 0 7.9 15a1.65 1.65 0 0 0-1.5-1H5.3v-2.7h1.1a1.65 1.65 0 0 0 1.5-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06L9.42 6.5l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.5V4.3H15v1.1a1.65 1.65 0 0 0 1 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.91 1.91-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.5 1H22v2.7h-1.1a1.65 1.65 0 0 0-1.5 1Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/>',
+  moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.804A6 6 0 0 0 20.18 12.08c.344-.215.826-.004.805.405"/>',
+  cloud: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h11"/>',
+  cloudSun: '<path d="M12 2v2m7.07.93-1.41 1.41M22 12h-2M4 12H2m4.34-5.66L4.93 4.93"/><path d="M12 8a4 4 0 0 1 4 4"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h11"/>',
+  cloudRain: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="m8 19-1 3m6-3-1 3m6-3-1 3"/>',
+  cloudSnow: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 19h.01M12 21h.01M16 19h.01"/>',
+  cloudLightning: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="m13 17-3 4h3l-1 3 5-6h-3l1-3"/>',
+  cloudFog: '<path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 16.25"/><path d="M5 19h14M7 22h10"/>',
 };
 function icon(name) {
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -742,6 +752,8 @@ function initListeners() {
   el('addSiteIcon').innerHTML = icon('plus');
   el('addFolderIcon').innerHTML = icon('folder');
   el('closeEditorBtn').innerHTML = icon('close');
+  el('settingsBtn').innerHTML = icon('settings');
+  el('settingsClose').innerHTML = icon('close');
   updateClock(); setInterval(updateClock,30000);
   const addSite = () => openEditor('create', 'site');
   const addFolder = () => openEditor('create', 'folder');
