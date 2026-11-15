@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Табло для Brave",
   "description": "Крупные плитки и всплывающие папки на новой вкладке. Все сайты хранятся в обычных закладках.",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "permissions": [
     "bookmarks",
     "storage",
