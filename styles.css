@@ -238,7 +238,7 @@ body[data-display="icon"] .is-site .tile-icon img {width:50px;height:50px;}
 .tile-title { color:inherit; max-width:100%; white-space:normal; text-align:center; }
 .tile-icon { background:transparent; }
 .folder-panel .crumb.active {color:#fff;}
-.folder-panel .folder-mini {background:#fff;}
+.folder-panel .folder-mini:not(.empty):not(.is-nested-folder) {background:var(--mini-color, #fff);}
 .editor-panel,.editor-panel .field {color:#30313c;}
 .empty-state,.empty-state h2 {color:#fff;}
 .site-appearance .setting {color:#34323c;}
