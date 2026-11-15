@@ -63,7 +63,7 @@ function siteVisual(node, mini=false) {
   const mode=meta.display||settings.display;
   const label=esc(node.title||safeDomain(node.url));
   const src=meta.iconData||meta.iconUrl||favUrl(node.url);
-  const image=`<span class="site-icon"><img loading="lazy" src="${esc(src)}" alt="" /><span class="fallback-letter">${esc((node.title||'?').slice(0,1).toUpperCase())}</span></span>`;
+  const image=`<span class="site-icon"><img draggable="false" loading="lazy" src="${esc(src)}" alt="" /><span class="fallback-letter">${esc((node.title||'?').slice(0,1).toUpperCase())}</span></span>`;
   return `<span class="site-visual mode-${esc(mode)}">${image}<span class="site-label">${label}</span></span>`;
 }
 function smallFolderIcons(folder) {
@@ -94,6 +94,10 @@ let editingMeta={};
 let editing = null; // {mode:'create'|'edit'|'move', type:'site'|'folder', nodeId}
 let contextId = null;
 let draggedId = null;
+let draggingFromFolder = false;
+let dragExitedFolder = false;
+let addMenuFolderId = null;
+let localMetadata = {};
 let renderRevision = 0;
 let refreshTimer = null;
 let toastTimer = null;
@@ -111,6 +115,7 @@ function contrastText(hex) {
 async function saveAppearance() { await chrome.storage.local.set({appearance}); }
 function applySettings() {
   document.body.dataset.display=settings.display;
+  if(rootNode) render();
   document.body.dataset.size=settings.tileSize;
   document.body.classList.toggle('clock-off',!settings.clock);
   document.body.classList.toggle('search-off',!settings.search);
@@ -140,14 +145,80 @@ async function loadBingWallpaper() {
       if(!r.ok) throw Error('Bing unavailable');
       const data=await r.json();const item=data.images?.[0];
       if(!item?.url || !item.url.startsWith('/')) throw Error('Unexpected Bing response');
-      image={date:today,url:new URL(item.url,'https://www.bing.com').href,credit:item.copyright||''};
+      image={date:today,url:new URL(item.url,'https://www.bing.com').href,credit:item.copyright||'',creditLink:item.copyrightlink||''};
       await chrome.storage.local.set({bingWallpaper:image});
     }
     const u=new URL(image.url);
     if(u.origin!=='https://www.bing.com') throw Error('Invalid image origin');
     el('wallpaper').style.backgroundImage=`url("${u.href}")`;
-    el('wallpaperCredit').textContent=image.credit;
-  } catch { const stored=await chrome.storage.local.get('bingWallpaper'); const previous=stored.bingWallpaper; if(previous?.url?.startsWith('https://www.bing.com/')) {el('wallpaper').style.backgroundImage=`url("${previous.url}")`;el('wallpaperCredit').textContent=previous.credit||'';} else el('wallpaperCredit').textContent='Фон Bing временно недоступен'; }
+    setWallpaperCredit(image);
+  } catch { const stored=await chrome.storage.local.get('bingWallpaper'); const previous=stored.bingWallpaper; if(previous?.url?.startsWith('https://www.bing.com/')) {el('wallpaper').style.backgroundImage=`url("${previous.url}")`;setWallpaperCredit(previous);} else {el('wallpaperCredit').textContent='Фон Bing временно недоступен';el('wallpaperCredit').removeAttribute('href');} }
+}
+function setWallpaperCredit(image) {
+  const credit=el('wallpaperCredit');
+  credit.textContent=image.credit||'Изображение дня · Bing';
+  try {
+    const url=new URL(image.creditLink||'');
+    if(url.protocol==='https:')credit.href=url.href;
+    else credit.removeAttribute('href');
+  }catch{credit.removeAttribute('href');}
+}
+function preferDark() { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+function pickThemeColor(doc) {
+  const metas=[...doc.querySelectorAll('meta[name="theme-color" i]')];
+  // Match a media-specific theme first; generic is the fallback.
+  const matches=metas.filter(meta=>{const media=meta.getAttribute('media');try{return media&&matchMedia(media).matches;}catch{return false;}});
+  const general=metas.filter(meta=>!meta.hasAttribute('media'));
+  const options=[...matches,...general,...metas].map(meta=>parseColor(meta.getAttribute('content'))).filter(Boolean);
+  // Avoid treating a generic white theme as the meaningful brand colour.
+  return options.find(color=>!['#ffffff','#000000'].includes(color.toLowerCase()))||options[0]
+    ||parseColor(doc.querySelector('meta[name="msapplication-TileColor" i]')?.content);
+}
+function previewIcon(src) {
+  const holder=el('iconPreview');
+  if(!holder)return;
+  holder.replaceChildren();
+  if(!src){holder.textContent='Нет иконки';return;}
+  const image=document.createElement('img');image.src=src;image.alt='Иконка сайта';
+  image.onerror=()=>{holder.textContent='Иконка недоступна';};
+  holder.append(image);
+}
+function effectiveMetadataFor(url) {
+  try {
+    const wanted=new URL(url);
+    let domainMatch=null;
+    for(const [id,node] of nodeMap){
+      if(!node.url)continue;
+      let candidate;try{candidate=new URL(node.url);}catch{continue;}
+      const meta=appearance[id]||{};
+      const record={title:node.title,iconData:meta.iconData,iconUrl:meta.iconUrl,color:meta.color};
+      if(candidate.href===wanted.href)return record;
+      if(candidate.hostname===wanted.hostname && !domainMatch)domainMatch=record;
+    }
+    return localMetadata[wanted.href]||localMetadata[wanted.origin]||domainMatch;
+  }catch{return null;}
+}
+async function fillFromKnownMetadata(url) {
+  const found=effectiveMetadataFor(url);
+  if(found){
+    if(found.title && !el('titleInput').value.trim())el('titleInput').value=found.title;
+    if(validHex(found.color)&&el('autoColorInput').checked)el('tileColorInput').value=found.color;
+    editingMeta={...editingMeta,...found};
+    previewIcon(found.iconData||found.iconUrl||favUrl(url));
+    return;
+  }
+  // Open tab data is available with tabs permission, but HTML/theme-color is not.
+  try {
+    const tabs=await chrome.tabs.query({});
+    const target=new URL(url);
+    const matching=tabs.find(t=>t.url===url)||tabs.find(t=>{
+      try{return new URL(t.url).hostname===target.hostname;}catch{return false;}
+    });
+    if(matching){
+      if(matching.title&&!el('titleInput').value.trim())el('titleInput').value=matching.title;
+      if(matching.favIconUrl){editingMeta.iconUrl=matching.favIconUrl;previewIcon(matching.favIconUrl);}
+    }
+  }catch{/* no available tab data */}
 }
 function parseColor(input) {
   if (!input) return null;
@@ -213,11 +284,13 @@ async function fetchSiteMetadata(url) {
     if(!response.ok)throw Error(`Сайт ответил HTTP ${response.status}`);
     const html=(await response.text()).slice(0,500000);
     const doc=new DOMParser().parseFromString(html,'text/html');
-    const theme=doc.querySelector('meta[name="theme-color"]')?.getAttribute('content')||doc.querySelector('meta[name="msapplication-TileColor"]')?.getAttribute('content');
+    const theme=pickThemeColor(doc);
     const title=(doc.querySelector('meta[property="og:site_name"]')?.content||doc.querySelector('title')?.textContent||'').trim().slice(0,180);
     const icon=await loadSiteIcon(url,doc);
-    const color=parseColor(theme)||await colorFromIcon(icon.iconData);
-    return {title,color,...icon};
+    const color=theme||await colorFromIcon(icon.iconData);
+    const result={title,color,...icon};
+    localMetadata[parsed.href]=result;localMetadata[parsed.origin]=result;
+    return result;
   }finally{clearTimeout(timer);}
 }
 
@@ -313,13 +386,24 @@ function scheduleRefresh() {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => { void refreshTree(); }, 70);
 }
+function addTileHTML() {
+ return `<article class="tile add-tile" data-add="true" title="Добавить сайт или папку"><button type="button" class="tile-main" data-action="add" aria-label="Добавить сайт">${icon('plus')}</button></article>`;
+}
+function openAddMenu(folderId,anchor) {
+  addMenuFolderId=folderId;closeContext();
+  const menu=el('addMenu');menu.hidden=false;
+  const rect=anchor.getBoundingClientRect();
+  menu.style.left=`${Math.max(8,Math.min(innerWidth-195,rect.left))}px`;
+  menu.style.top=`${rect.bottom+menu.offsetHeight+8<innerHeight?rect.bottom+5:Math.max(8,rect.top-menu.offsetHeight-5)}px`;
+}
+function closeAddMenu(){el('addMenu').hidden=true;addMenuFolderId=null;}
 function render() {
-  el('rootGrid').innerHTML = (rootNode.children || []).map(tileHTML).join('');
+  el('rootGrid').innerHTML = (rootNode.children || []).map(tileHTML).join('')+addTileHTML();
   const count = rootNode.children?.length || 0;
   el('rootCount').textContent = count ? `${count}` : '';
-  el('rootEmpty').hidden = count !== 0;
-  el('rootGrid').hidden = count === 0;
-  el('helpTip').hidden = count === 0;
+  el('rootEmpty').hidden = true;
+  el('rootGrid').hidden = false;
+
   if (folderPath.length) renderFolder();
   else el('folderOverlay').hidden = true;
 }
@@ -329,9 +413,9 @@ function renderFolder() {
   el('folderOverlay').hidden = false;
   el('folderTitle').textContent = folder.title;
   const count = (folder.children || []).length;
-  el('folderGrid').innerHTML = (folder.children || []).map(tileHTML).join('');
-  el('folderEmpty').hidden = count !== 0;
-  el('folderGrid').hidden = count === 0;
+  el('folderGrid').innerHTML = (folder.children || []).map(tileHTML).join('')+addTileHTML();
+  el('folderEmpty').hidden = true;
+  el('folderGrid').hidden = false;
 
 }
 function openFolder(nodeId) {
@@ -407,6 +491,8 @@ function openEditor(mode, type, nodeId = null) {
   el('tileColorInput').value = validHex(appearance[nodeId]?.color) ? appearance[nodeId].color : defaultColor;
   el('autoColorInput').checked = appearance[nodeId]?.autoColor !== false;
   editingMeta={};
+  previewIcon(node?.url?(appearance[nodeId]?.iconData||appearance[nodeId]?.iconUrl||favUrl(node.url)):null);
+  if(mode==='create'&&type==='site'&&el('urlInput').value.trim())void fillFromKnownMetadata(el('urlInput').value.trim());
   el('titleInput').value = node?.title || '';
   el('urlInput').value = node?.url || '';
   el('urlInput').required = type === 'site' && mode !== 'move';
@@ -419,7 +505,7 @@ function openEditor(mode, type, nodeId = null) {
   el('saveEditorBtn').textContent = mode === 'create' ? 'Добавить' : mode === 'move' ? 'Переместить' : 'Сохранить';
   el('saveEditorBtn').disabled = false;
   el('editorOverlay').hidden = false;
-  setTimeout(() => { (mode === 'move' ? el('parentSelect') : el('titleInput')).focus(); }, 0);
+  setTimeout(() => { (mode === 'move' ? el('parentSelect') : type==='site' && mode==='create' ? el('urlInput') : el('titleInput')).focus(); }, 0);
 }
 function closeEditor() {
   editing = null;
@@ -488,6 +574,7 @@ function bindGrid(grid) {
   grid.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
+    if(button.dataset.action==='add'){openEditor('create','site');return;}
     const id = button.dataset.id;
     if (button.dataset.action === 'menu') openContext(id, button);
     else navigate(id);
@@ -496,6 +583,7 @@ function bindGrid(grid) {
     const tile = event.target.closest('.tile');
     if (!tile) return;
     event.preventDefault();
+    if(tile.dataset.add){openAddMenu(currentFolderId(),tile);return;}
     openContext(tile.dataset.id, tile);
   });
   grid.addEventListener('load', (event) => {
@@ -507,18 +595,23 @@ function bindGrid(grid) {
   grid.addEventListener('dragstart', (event) => {
     const tile = event.target.closest('.tile');
     if (!tile || !nodeMap.has(tile.dataset.id)) return;
+    event.preventDefault();
+    document.activeElement?.blur?.();
+    closeAddMenu();
+    draggingFromFolder=folderPath.length>0;dragExitedFolder=false;
     draggedId = tile.dataset.id;
     event.dataTransfer.setData('text/plain', draggedId);
     event.dataTransfer.effectAllowed = 'move';
     tile.classList.add('dragging');
     closeContext();
   });
-  grid.addEventListener('dragend', () => { draggedId = null; clearDropClasses(); });
+  grid.addEventListener('dragend', () => { draggedId = null;draggingFromFolder=false;dragExitedFolder=false;clearDropClasses();document.activeElement?.blur?.(); });
   grid.addEventListener('dragover', (event) => {
     const tile = event.target.closest('.tile');
     if (!draggedId) return;
     clearDropClasses();
-    if (tile && draggedId !== tile.dataset.id) {
+    if (tile?.dataset.add) {event.preventDefault();event.dataTransfer.dropEffect='move';tile.classList.add('drop-inside');}
+    else if (tile && draggedId !== tile.dataset.id) {
       const place = dropPlacement(tile, event.clientX);
       const targetId = place === 'inside' ? tile.dataset.id : nodeMap.get(tile.dataset.id).parentId;
       if (canMove(draggedId, targetId)) {
@@ -539,13 +632,16 @@ function bindGrid(grid) {
     event.preventDefault();
     const tile = event.target.closest('.tile');
     const id = draggedId;
+    const exited=dragExitedFolder && grid===el('rootGrid');
     draggedId = null;
+    if(exited){try{await moveBookmark(id,rootId);closeFolder();}catch(error){showToast(error.message);}return;}
     clearDropClasses();
     try {
       if (!tile) {
         if (folderPath.length) await moveBookmark(id, currentFolderId());
         return;
       }
+      if(tile.dataset.add){await moveBookmark(id,currentFolderId());return;}
       if (tile.dataset.id === id) return;
       const place = dropPlacement(tile, event.clientX);
       const target = nodeMap.get(tile.dataset.id);
@@ -581,7 +677,6 @@ async function moveBookmark(id, parentId, index = null) {
 function initListeners() {
   el('addSiteIcon').innerHTML = icon('plus');
   el('addFolderIcon').innerHTML = icon('folder');
-  el('closeFolderBtn').innerHTML = icon('close');
   el('closeEditorBtn').innerHTML = icon('close');
   updateClock(); setInterval(updateClock,30000);
   const addSite = () => openEditor('create', 'site');
@@ -589,18 +684,17 @@ function initListeners() {
   el('addSiteBtn').addEventListener('click', addSite);
   el('firstSiteBtn').addEventListener('click', addSite);
   el('addFolderBtn').addEventListener('click', addFolder);
-  el('folderAddSiteBtn').addEventListener('click', addSite);
-  el('folderAddFolderBtn').addEventListener('click', addFolder);
   el('settingsBtn').addEventListener('click',(event)=>{event.stopPropagation();el('settingsPanel').hidden=!el('settingsPanel').hidden;});
   el('settingsClose').addEventListener('click',()=>{el('settingsPanel').hidden=true;});
   el('rootFolderSelect').addEventListener('change',async()=>{const selected=el('rootFolderSelect').value;const [folder]=await chrome.bookmarks.get(selected);if(folder.url)return;rootId=selected;folderPath=[];await chrome.storage.local.set({rootFolderId:selected});await refreshTree();showToast('Папка Табло изменена');});
   for(const [id,key,prop] of [['tileSizeSelect','tileSize','value'],['displaySelect','display','value'],['backgroundSelect','background','value'],['shadeRange','shade','value'],['clockToggle','clock','checked'],['searchToggle','search','checked']]) {
     el(id).addEventListener('change',()=>void updateSettings(key,key==='shade'?Number(el(id)[prop]):el(id)[prop]));
   }
-  el('searchForm').addEventListener('submit',(event)=>{
+  el('searchForm').addEventListener('submit',async(event)=>{
     event.preventDefault();const query=el('searchInput').value.trim();if(!query)return;
     const looksUrl=/^(https?:\/\/|localhost(?::\d+)?(?:\/|$)|[\w-]+(?:\.[\w-]+)+(?:[:\/]|$))/i.test(query);
-    window.location.assign(looksUrl?normaliseUrl(query):'https://www.google.com/search?q='+encodeURIComponent(query));
+    if(looksUrl){window.location.assign(normaliseUrl(query));return;}
+    try{await chrome.search.query({text:query,disposition:'CURRENT_TAB'});}catch(error){showToast('Не удалось открыть поиск: '+error.message);}
   });
   el('fetchMetaBtn').addEventListener('click',async()=>{
     const btn=el('fetchMetaBtn');btn.disabled=true;
@@ -609,11 +703,11 @@ function initListeners() {
       if(result.title)el('titleInput').value=result.title;
       if(result.color && el('autoColorInput').checked)el('tileColorInput').value=result.color;
       editingMeta={iconData:result.iconData,iconUrl:result.iconUrl};
+      previewIcon(result.iconData||result.iconUrl||favUrl(el('urlInput').value));
       showToast('Данные сайта получены');
     } catch(error){showToast('Не удалось загрузить данные: '+error.message);}
     finally {btn.disabled=false;}
   });
-  el('closeFolderBtn').addEventListener('click', closeFolder);
   el('folderOverlay').addEventListener('click', (event) => {
     if (event.target === el('folderOverlay')) closeFolder();
   });
@@ -623,6 +717,16 @@ function initListeners() {
     if (event.target === el('editorOverlay')) closeEditor();
   });
   el('editorForm').addEventListener('submit', (event) => { void submitEditor(event); });
+  el('addMenu').addEventListener('click',event=>{
+    const button=event.target.closest('[data-add-action]');if(!button)return;
+    const folderId=addMenuFolderId;closeAddMenu();
+    openEditor('create',button.dataset.addAction);
+    if(folderId && [...el('parentSelect').options].some(o=>o.value===folderId))el('parentSelect').value=folderId;
+  });
+  el('urlInput').addEventListener('change',()=>{
+    if(!editing||editing.type!=='site')return;
+    try{void fillFromKnownMetadata(normaliseUrl(el('urlInput').value));}catch{}
+  });
   el('contextMenu').addEventListener('click', (event) => {
     const button = event.target.closest('[data-menu-action]');
     if (!button || !contextId) return;
@@ -637,6 +741,7 @@ function initListeners() {
     else if (action === 'delete') void deleteNode(id);
   });
   document.addEventListener('pointerdown', (event) => {
+    if (!el('addMenu').hidden && !event.target.closest('#addMenu') && !event.target.closest('.add-tile'))closeAddMenu();
     if (!el('settingsPanel').hidden && !event.target.closest('#settingsPanel') && !event.target.closest('#settingsBtn')) el('settingsPanel').hidden=true;
     if (!el('contextMenu').hidden && !event.target.closest('#contextMenu') && !event.target.closest('.tile-more')) closeContext();
   });
@@ -644,14 +749,29 @@ function initListeners() {
     if (event.key !== 'Escape') return;
     if (!el('editorOverlay').hidden) closeEditor();
     else if (!el('settingsPanel').hidden) el('settingsPanel').hidden=true;
+    else if (!el('addMenu').hidden) closeAddMenu();
     else if (!el('contextMenu').hidden) closeContext();
     else if (!el('folderOverlay').hidden) closeFolder();
   });
   bindGrid(el('rootGrid'));
   bindGrid(el('folderGrid'));
-  el('folderBackBtn').addEventListener('click',()=>{
-    if(folderPath.length>1){folderPath.pop();renderFolder();} else closeFolder();
+  // Dragging beyond the folder panel sends the tile back to the main board.
+  document.addEventListener('dragover',event=>{
+    if(!draggedId||!draggingFromFolder||dragExitedFolder||el('folderOverlay').hidden)return;
+    const panel=el('folderPanel').getBoundingClientRect();
+    if(event.clientX<panel.left-15||event.clientX>panel.right+15||event.clientY<panel.top-15||event.clientY>panel.bottom+15){
+      event.preventDefault();event.dataTransfer.dropEffect='move';dragExitedFolder=true;
+      el('folderOverlay').classList.add('drag-outside');
+      el('folderOverlay').hidden=true;
+    }else{dragExitedFolder=false;el('folderOverlay').classList.remove('drag-outside');}
   });
+  document.addEventListener('drop',async(event)=>{
+    if(!draggedId||!draggingFromFolder||!dragExitedFolder)return;
+    event.preventDefault();const id=draggedId;draggedId=null;
+    try{await moveBookmark(id,rootId);closeFolder();}catch(e){showToast(e.message);}
+    finally{el('folderOverlay').classList.remove('drag-outside');clearDropClasses();dragExitedFolder=false;draggingFromFolder=false;}
+  });
+  document.addEventListener('dragend',()=>{if(dragExitedFolder){closeFolder();dragExitedFolder=false;}el('folderOverlay').classList.remove('drag-outside');document.activeElement?.blur?.();});
   for (const event of ['onCreated','onChanged','onMoved','onRemoved','onChildrenReordered','onImportEnded']) {
     chrome.bookmarks[event]?.addListener(scheduleRefresh);
   }
