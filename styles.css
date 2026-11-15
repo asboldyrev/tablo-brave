@@ -311,3 +311,54 @@ body {position:relative;isolation:isolate;}
 .page { z-index:2; }
 .site-icon .fallback-letter { z-index:0; }
 .site-icon img { position:relative;z-index:1; }
+
+/* v0.4 UX refinements */
+.content{padding-top:170px;justify-content:flex-start;}
+.hero{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10;width:min(980px,calc(100vw - 40px));margin:0;pointer-events:none;}
+.hero>*{pointer-events:auto;}
+.clock{font-size:42px;letter-spacing:-1px;}
+.today{margin:1px 0 12px;font-size:12px;}
+.search-form{height:43px;}
+.clock-off.search-off .hero{display:none;}
+.clock-off .hero .search-form{margin-top:8px;}
+.search-off .hero .today{margin-bottom:0;}
+.content .tile-grid{position:relative;isolation:isolate;padding:10px;border-radius:16px;}
+.content .tile-grid:before{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(170,165,182,.15);backdrop-filter:blur(8px);pointer-events:none;}
+.main-actions,.help-tip{display:none!important;}
+.add-tile{background:rgba(235,233,240,.28)!important;outline:1px dashed rgba(255,255,255,.3);box-shadow:none;}
+.add-tile:hover{background:rgba(245,244,251,.45)!important;}
+.add-tile .tile-main{color:#fff;}
+.add-tile svg{width:30px;height:30px;stroke-width:1.5;opacity:.82;}
+.folder-heading{justify-content:center;margin:0 0 18px;}
+.folder-heading h2{text-align:center;font-size:23px;}
+.folder-panel{padding:25px 27px;}
+.folder-overlay.drag-outside{pointer-events:none;background:rgba(18,16,28,.12);}
+.folder-overlay.drag-outside .folder-panel{opacity:.4;}
+.tile.dragging{filter:none;}
+.tile:focus:not(:focus-visible),.tile-main:focus:not(:focus-visible){outline:0;filter:none;}
+.folder-icon{gap:var(--mini-gap-y) var(--mini-gap-x);}
+body[data-size="small"]{--mini-w:49px;--mini-h:34px;--mini-padding:8px;--mini-gap-x:5px;--mini-gap-y:4px;}
+body[data-size="normal"]{--mini-w:70px;--mini-h:36px;--mini-padding:10px;--mini-gap-x:4px;--mini-gap-y:5px;}
+body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-gap-x:8px;--mini-gap-y:8px;}
+.is-folder .tile-main,.folder-grid .is-folder .tile-main{padding:var(--mini-padding);}
+.folder-icon{grid-template-columns:repeat(2,var(--mini-w));grid-template-rows:repeat(2,var(--mini-h));justify-content:center;align-content:center;width:100%;height:100%;}
+.folder-mini{width:var(--mini-w);height:var(--mini-h);min-height:0;border-radius:4px;}
+.folder-mini .site-visual{padding:2px;gap:1px;}
+.folder-mini .site-icon,.folder-mini .mode-icon .site-icon{width:min(27%,21px);height:min(50%,21px);}
+.folder-mini .site-icon img{max-width:100%;max-height:100%;}
+.folder-mini .site-label{font-size:clamp(5px,.55vw,9px);line-height:1.1;}
+.folder-mini .mode-icon .site-icon{width:min(40%,28px);height:min(68%,28px);}
+.folder-mini .fallback-letter{font-size:11px;}
+.folder-mini .mini-folder{padding:2px;gap:2px;}
+.folder-mini .mini-folder .folder-mini{width:auto;height:auto;}
+.folder-mini .mini-folder .site-label{font-size:4px;}
+.wallpaperCredit{} /* Compatibility placeholder */
+#wallpaperCredit{position:fixed;left:16px;bottom:14px;z-index:5;padding:7px 10px;border-radius:8px;background:rgba(22,20,30,.55);backdrop-filter:blur(10px);color:#fff;text-decoration:none;max-width:min(65vw,640px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:auto;}
+#wallpaperCredit[href]:hover{text-decoration:underline;background:rgba(22,20,30,.75);}
+.icon-preview-line{margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:12px;color:#555;}
+.icon-preview{min-width:64px;min-height:64px;display:grid;place-items:center;background:#f4f3f6;border:1px solid #e1dfe5;border-radius:12px;padding:8px;color:#888;font-size:10px;}
+.icon-preview img{width:46px;height:46px;object-fit:contain;}
+.metadata-note{margin:10px 0 4px!important;}
+.site-appearance{margin-bottom:26px;}
+@media(max-height:650px){.hero{top:8px}.clock{font-size:30px}.today{margin:0 0 4px}.content{padding-top:125px;}}
+@media(max-width:620px){.hero{top:10px}.content{padding-top:148px}.folder-icon{transform:scale(.85)}#wallpaperCredit{max-width:65vw;}}
