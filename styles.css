@@ -486,3 +486,27 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
   .weather-widget {top: 14px; right: 16px; min-height: 38px; padding: 6px 9px;}
   .settings-trigger {width: 42px;height: 42px;}
 }
+
+/* v0.6.2 — match the frosted headers and board to the same outer width. */
+:root { --tablo-glass-inset:18px; --tablo-board-width:960px; }
+.content #rootGrid {
+  padding:var(--tablo-glass-inset);
+  border-radius:20px;
+  box-sizing:border-box;
+}
+.hero {
+  width:min(var(--tablo-board-width),calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  padding:var(--tablo-glass-inset);
+  box-sizing:border-box;
+}
+.hero .search-form {width:100%;max-width:none;}
+/* When search is off, only the clock/date should have glass around it. */
+body.search-off:not(.clock-off) .hero {
+  width:max-content;
+  max-width:calc(100vw - 24px);
+}
+
+/* Match the exact horizontal origin, including narrow responsive layouts. */
+.hero {left:var(--tablo-board-left, 50%);transform:none;}
+body.search-off:not(.clock-off) .hero {left:50%;transform:translateX(-50%);}
