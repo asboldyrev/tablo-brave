@@ -443,7 +443,7 @@ function renderFolder() {
   el('folderTitle').textContent = folder.title;
   const ancestors=folderPath.slice(0,-1);
   const visible=ancestors.slice(-2);
-  el('folderBack').hidden=false;
+  el('folderBack').hidden = ancestors.length === 0;
   el('folderBreadcrumbs').innerHTML=(ancestors.length>2?'<span class="crumb-ellipsis" title="Есть более ранние папки">…</span>':'')+visible.map((id,i)=>`<button type="button" class="folder-crumb" data-folder-id="${esc(id)}">${esc(nodeMap.get(id)?.title||'Папка')}</button>`).join('<span class="crumb-separator">›</span>');
   const count = (folder.children || []).length;
   el('folderGrid').innerHTML = (folder.children || []).map(tileHTML).join('')+addTileHTML();
