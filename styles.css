@@ -413,3 +413,76 @@ body[data-size="large"]{--mini-w:106px;--mini-h:56px;--mini-padding:15px;--mini-
 #weatherSavePlaceBtn {width:100%;margin-top:8px;text-align:center;}
 .weather-status {font-size:11px;line-height:1.4;color:#817c8d;margin-top:9px;}
 @media(max-width:680px){.weather-widget{right:0;top:0;font-size:16px;padding:5px 7px;}.weather-icon,.weather-icon svg{width:20px;height:20px;}.clock{font-size:clamp(48px,8vw,72px);}}
+
+/* v0.6.1 — consistent frosted surfaces, separate from the wallpaper. */
+:root {
+  --tablo-glass-bg: rgba(113, 103, 126, .28);
+  --tablo-glass-border: rgba(255, 255, 255, .22);
+  --tablo-glass-blur: blur(13px) saturate(1.18);
+  --tablo-glass-shadow: 0 7px 24px rgba(18, 13, 30, .12);
+}
+.hero {
+  top: 18px;
+  width: min(960px, calc(100vw - 250px));
+  max-width: none;
+  box-sizing: border-box;
+  padding: 14px 18px 18px;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 20px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+}
+.content .tile-grid:before {
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+}
+.weather-widget {
+  position: fixed;
+  top: 20px;
+  right: 22px;
+  left: auto;
+  z-index: 18;
+  min-height: 44px;
+  box-sizing: border-box;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 12px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+  text-shadow: 0 1px 5px rgba(0,0,0,.35);
+  padding: 8px 12px;
+}
+.settings-trigger {
+  width: 44px;
+  height: 44px;
+  background: var(--tablo-glass-bg);
+  border: 1px solid var(--tablo-glass-border);
+  border-radius: 12px;
+  backdrop-filter: var(--tablo-glass-blur);
+  -webkit-backdrop-filter: var(--tablo-glass-blur);
+  box-shadow: var(--tablo-glass-shadow);
+  color: #fff;
+}
+.settings-trigger svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+}
+.settings-trigger:hover,
+.weather-widget:hover {
+  background: rgba(138, 128, 151, .36);
+}
+@media (max-width: 950px) {
+  .hero {width: min(680px, calc(100vw - 260px));}
+}
+@media (max-width: 650px) {
+  .hero {top: 78px; width: calc(100vw - 32px); padding: 12px;}
+  .weather-widget {top: 14px; right: 16px; min-height: 38px; padding: 6px 9px;}
+  .settings-trigger {width: 42px;height: 42px;}
+}
